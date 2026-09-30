@@ -54,15 +54,18 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!(data_dir = ?paths.data_dir(), "platform services ready");
 
-    // ─── Identity ───────────────────────────────────────────────
-    // Temporary: a fixed peer id. Engineer A's identity module will
-    // derive this from an Ed25519 keypair.
-    let self_peer_id = "localos-local".to_string();
+        // ─── Identity ───────────────────────────────────────────────
+    // Temporary: derived from the OS process id. Engineer A's
+    // identity module will derive this from an Ed25519 keypair.
+    // Using the PID lets us run two instances side-by-side for
+    // local testing of mDNS discovery.
+    let pid = std::process::id();
+    let self_peer_id = format!("localos-{pid}");
 
     // ─── Advertise ourselves ────────────────────────────────────
-    let self_ad = PeerAd {
+        let self_ad = PeerAd {
         peer_id: self_peer_id.clone(),
-        name: "LocalOS (this device)".to_string(),
+        name: format!("LocalOS-{pid}"),
         session_id: None,
         port: LISTEN_PORT,
     };
