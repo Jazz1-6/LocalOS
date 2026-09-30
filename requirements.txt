@@ -1,0 +1,81 @@
+# LocalOS v1 — System Requirements
+# This file lists everything a developer needs to build LocalOS.
+# It is NOT a pip requirements file. Rust does not use pip.
+# Run setup.sh (Linux/macOS) or setup.ps1 (Windows) to install everything.
+
+# ─── System Tools ────────────────────────────────────────────────
+rustup          >= 1.27    # Installs and manages Rust toolchains
+rust            == 1.83.0  # Pinned in rust-toolchain.toml
+cargo           == 1.83.0  # Comes with rust
+node            >= 20.0    # LTS. For the React UI.
+npm             >= 10.0    # Comes with node
+git             >= 2.40    # Version control
+tauri-cli       >= 2.0     # Desktop app shell
+
+# ─── Rust Dependencies (auto-downloaded by cargo) ────────────────
+# Listed here for reference. Actual versions live in Cargo.toml.
+
+# Async runtime and concurrency
+tokio                   1.x
+futures                 0.3
+
+# Error handling
+thiserror               2.x
+anyhow                  1.x
+
+# Logging
+tracing                 0.1
+tracing-subscriber      0.3
+
+# Serialization
+serde                   1.x
+serde_json              1.x
+bincode                 1.x
+
+# Cryptography
+rustls                  0.23
+ed25519-dalek           2.x
+blake3                  1.x
+sha2                    0.10
+rand                    0.8
+
+# Networking
+quinn                   0.11
+mdns-sd                 0.11
+rcgen                   0.13
+
+# Storage
+rusqlite                0.32
+
+# Filesystem
+directories             5.x
+walkdir                 2.x
+tempfile                3.x
+
+# Encoding
+data-encoding           2.x
+
+# Time
+time                    0.3
+
+# UUIDs
+uuid                    1.x
+
+# Frontend / Tauri
+tauri                   2.x
+tauri-build             2.x
+
+# ─── OS Packages (Linux only) ────────────────────────────────────
+# Debian/Ubuntu
+libwebkit2gtk-4.1-dev
+libssl-dev
+libayatana-appindicator3-dev
+librsvg2-dev
+build-essential
+pkg-config
+
+# Fedora
+webkit2gtk4.1-devel
+openssl-devel
+libappindicator-gtk3-devel
+librsvg2-devel

@@ -1,0 +1,81 @@
+﻿[workspace]
+resolver = "2"
+members = [
+    "crates/traits",
+    "crates/core",
+    "crates/platform",
+    "crates/app",
+    "crates/ui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# Internal
+localos-traits   = { path = "crates/traits" }
+localos-core     = { path = "crates/core" }
+localos-platform = { path = "crates/platform" }
+localos-ui       = { path = "crates/ui" }
+
+# Async
+tokio   = { version = "1", features = ["sync", "rt-multi-thread", "macros", "fs", "net", "io-util", "time"] }
+futures = "0.3"
+
+# Errors
+thiserror = "2"
+anyhow    = "1"
+
+# Logging
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Serialization
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode    = "1"
+
+# Crypto
+rustls        = "0.23"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+blake3        = "1"
+sha2          = "0.10"
+rand          = "0.8"
+
+# Networking
+quinn   = { version = "0.11", default-features = false, features = ["rustls", "runtime-tokio"] }
+mdns-sd = "0.11"
+rcgen   = "0.13"
+
+# Storage
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Filesystem
+directories = "5"
+walkdir     = "2"
+tempfile    = "3"
+
+# Encoding / IDs / Time
+data-encoding = "2"
+uuid          = { version = "1", features = ["v4"] }
+time          = { version = "0.3", features = ["formatting", "parsing"] }
+
+# Tauri
+tauri       = "2"
+tauri-build = "2"
+
+[profile.release]
+opt-level     = 3
+lto           = true
+codegen-units = 1
+strip         = true
+panic         = "abort"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
