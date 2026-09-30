@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>LocalOS</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0e0e10;
+            color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0 0 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        input,
+        button {
+            font-size: 1rem;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1a1a1d;
+            color: #f0f0f0;
+        }
+
+        button {
+            cursor: pointer;
+            margin-left: 0.5rem;
+            background: #4facfe;
+            border-color: #4facfe;
+            color: #0e0e10;
+            font-weight: 600;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        #output {
+            margin-top: 1.5rem;
+            min-height: 1.5rem;
+            color: #9dffb0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1>LocalOS</h1>
+        <input id="name" type="text" placeholder="your name" value="world" />
+        <button onclick="sayHi()">Greet</button>
+        <p id="output"></p>
+    </div>
+    <script src="main.js"></script>
+</body>
+
+</html>

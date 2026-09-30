@@ -18,3 +18,7 @@ tokio              = { workspace = true }
 anyhow             = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
+tauri              = { workspace = true }
+
+[build-dependencies]
+tauri-build = { workspace = true }

@@ -2162,6 +2162,8 @@ dependencies = [
  "localos-core",
  "localos-platform",
  "localos-traits",
+ "tauri",
+ "tauri-build",
  "tokio",
  "tracing",
  "tracing-subscriber",
