@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tokio::sync::mpsc;
 
 /// Advertised peer on the LAN.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PeerAd {
     pub peer_id: String,
     pub name: String,
@@ -16,7 +16,7 @@ pub struct PeerAd {
 }
 
 /// Clipboard payload.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ClipboardItem {
     Text(String),
     Image(Vec<u8>),

@@ -13,62 +13,115 @@
             font-family: system-ui, -apple-system, sans-serif;
             background: #0e0e10;
             color: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
             margin: 0;
-        }
-
-        .card {
-            text-align: center;
+            padding: 2rem;
+            min-height: 100vh;
+            box-sizing: border-box;
         }
 
         h1 {
-            margin: 0 0 1.5rem;
+            margin: 0 0 0.25rem;
             font-weight: 600;
             letter-spacing: 0.05em;
         }
 
-        input,
-        button {
+        h2 {
+            margin: 2rem 0 0.5rem;
             font-size: 1rem;
-            padding: 0.6rem 1rem;
-            border-radius: 8px;
-            border: 1px solid #333;
-            background: #1a1a1d;
-            color: #f0f0f0;
-        }
-
-        button {
-            cursor: pointer;
-            margin-left: 0.5rem;
-            background: #4facfe;
-            border-color: #4facfe;
-            color: #0e0e10;
             font-weight: 600;
+            color: #9aa0a6;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
-        button:hover {
-            opacity: 0.9;
+        .sub {
+            color: #9aa0a6;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
         }
 
-        #output {
-            margin-top: 1.5rem;
-            min-height: 1.5rem;
-            color: #9dffb0;
-            font-family: monospace;
+        .status {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 0.5rem 1rem;
+            font-size: 0.9rem;
+            padding: 1rem;
+            background: #16171a;
+            border-radius: 8px;
+            border: 1px solid #232428;
+        }
+
+        .status dt {
+            color: #9aa0a6;
+        }
+
+        .status dd {
+            margin: 0;
+            font-family: ui-monospace, Consolas, monospace;
+        }
+
+        #peers {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #peers li {
+            padding: 0.75rem 1rem;
+            background: #16171a;
+            border-radius: 8px;
+            border: 1px solid #232428;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #peers li .name {
+            font-weight: 500;
+        }
+
+        #peers li .id {
+            color: #9aa0a6;
+            font-size: 0.85rem;
+            font-family: ui-monospace, monospace;
+        }
+
+        .empty {
+            color: #6b7076;
+            font-style: italic;
+            padding: 0.75rem 0;
+        }
+
+        code {
+            background: #232428;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
         }
     </style>
 </head>
 
 <body>
-    <div class="card">
-        <h1>LocalOS</h1>
-        <input id="name" type="text" placeholder="your name" value="world" />
-        <button onclick="sayHi()">Greet</button>
-        <p id="output"></p>
-    </div>
+    <h1>LocalOS</h1>
+    <p class="sub">LAN-first collaboration. No internet. No accounts.</p>
+
+    <dl class="status">
+        <dt>Version</dt>
+        <dd id="version">…</dd>
+        <dt>Peer ID</dt>
+        <dd id="peer-id">…</dd>
+        <dt>Firewall</dt>
+        <dd id="firewall">…</dd>
+        <dt>Clipboard</dt>
+        <dd id="clipboard">…</dd>
+        <dt>Data dir</dt>
+        <dd id="data-dir">…</dd>
+    </dl>
+
+    <h2>Peers on this LAN</h2>
+    <ul id="peers">
+        <li class="empty">Searching…</li>
+    </ul>
+
     <script src="main.js"></script>
 </body>
 
