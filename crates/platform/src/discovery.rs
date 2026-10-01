@@ -4,9 +4,9 @@
 //! mDNS implementation (Bonjour on Windows and macOS, avahi on Linux),
 //! so this file does not need `#[cfg(target_os)]` blocks for v1.
 
+use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use std::sync::Mutex;
 use tokio::sync::mpsc;
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 
 use localos_traits::{Discovery, PeerAd, PlatformError};
 
@@ -88,10 +88,8 @@ impl Discovery for NativeDiscovery {
 
         // Build TXT properties. peer_id and name are required;
         // session_id is optional (present only when hosting).
-        let mut props: Vec<(&str, &str)> = vec![
-            ("peer_id", ad.peer_id.as_str()),
-            ("name", ad.name.as_str()),
-        ];
+        let mut props: Vec<(&str, &str)> =
+            vec![("peer_id", ad.peer_id.as_str()), ("name", ad.name.as_str())];
         if let Some(sid) = &ad.session_id {
             props.push(("session_id", sid.as_str()));
         }

@@ -38,9 +38,8 @@ impl Firewall for NativeFirewall {
         // This catches real failures: missing networking stack, denied
         // syscalls in a sandbox, etc. It does not prove the firewall
         // will allow inbound traffic — nothing portable can prove that.
-        let socket = std::net::UdpSocket::bind("0.0.0.0:0").map_err(|e| {
-            PlatformError::Other(format!("firewall: udp bind check failed: {e}"))
-        })?;
+        let socket = std::net::UdpSocket::bind("0.0.0.0:0")
+            .map_err(|e| PlatformError::Other(format!("firewall: udp bind check failed: {e}")))?;
         drop(socket);
         Ok(())
     }

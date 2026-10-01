@@ -1,4 +1,4 @@
-﻿//! LocalOS desktop binary.
+//! LocalOS desktop binary.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

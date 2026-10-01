@@ -64,10 +64,7 @@ impl Clipboard for NativeClipboard {
         }
     }
 
-    fn watch(
-        &self,
-        _cb: Box<dyn Fn(ClipboardItem) + Send + Sync>,
-    ) -> Result<(), PlatformError> {
+    fn watch(&self, _cb: Box<dyn Fn(ClipboardItem) + Send + Sync>) -> Result<(), PlatformError> {
         // `arboard` does not expose clipboard change events.
         // A real implementation would poll on an interval, or use
         // OS-specific event hooks. Follow-up PR.

@@ -1,4 +1,4 @@
-﻿//! Shared trait definitions for LocalOS.
+//! Shared trait definitions for LocalOS.
 //!
 //! This crate contains no OS-specific code and no `#[cfg(target_os)]`.
 //! Both `localos-core` and `localos-platform` depend on this crate.
@@ -52,10 +52,7 @@ pub trait Discovery: Send + Sync {
 pub trait Clipboard: Send + Sync {
     fn get(&self) -> Result<ClipboardItem, PlatformError>;
     fn set(&self, item: &ClipboardItem) -> Result<(), PlatformError>;
-    fn watch(
-        &self,
-        cb: Box<dyn Fn(ClipboardItem) + Send + Sync>,
-    ) -> Result<(), PlatformError>;
+    fn watch(&self, cb: Box<dyn Fn(ClipboardItem) + Send + Sync>) -> Result<(), PlatformError>;
 }
 
 /// Cross-platform application paths.

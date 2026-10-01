@@ -1,4 +1,4 @@
-﻿//! LocalOS platform integrations.
+//! LocalOS platform integrations.
 //!
 //! Implements the traits defined in `localos-traits` once per OS.
 

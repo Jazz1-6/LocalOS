@@ -67,10 +67,7 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 /// Persist new settings. Also re-advertises this peer over mDNS so
 /// the new display name is visible to other peers immediately.
 #[tauri::command]
-pub fn save_settings(
-    state: State<'_, AppState>,
-    settings: Settings,
-) -> Result<(), String> {
+pub fn save_settings(state: State<'_, AppState>, settings: Settings) -> Result<(), String> {
     // Trim and validate
     let display_name = settings.display_name.trim().to_string();
     if display_name.is_empty() {
@@ -79,7 +76,7 @@ pub fn save_settings(
     if display_name.chars().count() > 64 {
         return Err("Display name must be 64 characters or fewer".into());
     }
-        let settings = Settings {
+    let settings = Settings {
         display_name,
         clipboard_sync_enabled: settings.clipboard_sync_enabled,
         demo_mode: settings.demo_mode,

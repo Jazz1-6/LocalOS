@@ -10,6 +10,7 @@ use std::io::Write;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+
 /// User-facing color scheme preference.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -30,15 +31,22 @@ impl Default for Theme {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// Name shown to other peers on the LAN.
     pub display_name: String,
+
+    /// Whether this device participates in ghost clipboard sync.
+    /// Off by default — opt-in.
     pub clipboard_sync_enabled: bool,
+
     /// When true, the UI renders sample data instead of querying
     /// real engine state. Off by default. Intended for demos and
     /// portfolio screenshots before the engine ships.
     pub demo_mode: bool,
+
     /// Color scheme preference. Default: follow the OS.
     pub theme: Theme,
 }
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -86,8 +94,7 @@ impl Settings {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let text = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let text = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
 
         let tmp = path.with_extension("json.tmp");
         {
@@ -109,6 +116,8 @@ mod tests {
         let s = Settings::default();
         assert!(!s.display_name.is_empty());
         assert!(!s.clipboard_sync_enabled);
+        assert!(!s.demo_mode);
+        assert_eq!(s.theme, Theme::System);
     }
 
     #[test]
@@ -116,18 +125,19 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
 
-                let original = Settings {
+        let original = Settings {
             display_name: "Test Device".to_string(),
             clipboard_sync_enabled: true,
             demo_mode: true,
             theme: Theme::Dark,
         };
-                assert_eq!(loaded.theme, Theme::Dark);
         original.save(&path).unwrap();
 
         let loaded = Settings::load(&path);
         assert_eq!(loaded.display_name, "Test Device");
         assert!(loaded.clipboard_sync_enabled);
+        assert!(loaded.demo_mode);
+        assert_eq!(loaded.theme, Theme::Dark);
     }
 
     #[test]
