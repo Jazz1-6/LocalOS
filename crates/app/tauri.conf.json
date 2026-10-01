@@ -11,9 +11,14 @@
         "windows": [
             {
                 "title": "LocalOS",
-                "width": 900,
-                "height": 600,
-                "resizable": true
+                "width": 1000,
+                "height": 680,
+                "minWidth": 760,
+                "minHeight": 520,
+                "resizable": true,
+                "decorations": false,
+                "transparent": false,
+                "backgroundColor": "#09090b"
             }
         ],
         "security": {

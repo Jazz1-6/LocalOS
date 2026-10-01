@@ -7,120 +7,1848 @@
     <style>
         :root {
             color-scheme: dark;
+
+            /* surfaces */
+            --bg-0: #08080a;
+            --bg-1: #0d0d10;
+            --bg-2: #121316;
+            --bg-3: #17181c;
+            --bg-4: #1e2025;
+            --bg-5: #26282e;
+
+            /* borders */
+            --border-1: #1c1d22;
+            --border-2: #26282e;
+            --border-3: #33353c;
+
+            /* text */
+            --fg-0: #f4f4f6;
+            --fg-1: #a1a4ad;
+            --fg-2: #6b6e77;
+            --fg-3: #484b53;
+
+            /* accent — single, semantic */
+            --accent: #4facfe;
+            --accent-bright: #7ec2ff;
+            --accent-fg: #0a1826;
+            --accent-soft: #4facfe14;
+            --accent-glow: #4facfe40;
+
+            /* status */
+            --success: #4ade80;
+            --success-glow: #4ade8040;
+            --danger: #f87171;
+            --warning: #fbbf24;
+
+            /* radii — two only */
+            --r-sm: 5px;
+            --r-md: 8px;
+            --r-lg: 12px;
+            --r-pill: 999px;
+
+            /* motion */
+            --t-fast: 100ms ease-out;
+            --t: 140ms ease-out;
+            --t-slow: 220ms cubic-bezier(0.32, 0.72, 0, 1);
+
+            --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+            --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+
+            --titlebar-h: 38px;
+            --sidebar-w: 224px;
+            --toolbar-h: 48px;
+            --statusbar-h: 28px;
+            --inspector-w: 340px;
         }
 
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #0e0e10;
-            color: #f0f0f0;
-            margin: 0;
-            padding: 2rem;
-            min-height: 100vh;
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        * {
             box-sizing: border-box;
         }
 
-        h1 {
-            margin: 0 0 0.25rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: var(--font);
+            font-size: 13.5px;
+            line-height: 1.5;
+            background: var(--bg-0);
+            color: var(--fg-0);
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            font-feature-settings: "cv11", "ss01";
         }
 
-        h2 {
-            margin: 2rem 0 0.5rem;
-            font-size: 1rem;
-            font-weight: 600;
-            color: #9aa0a6;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .sub {
-            color: #9aa0a6;
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
-        }
-
-        .status {
+        /* ─── Custom titlebar ─────────────────────────────────────── */
+        .titlebar {
+            height: var(--titlebar-h);
+            background: var(--bg-1);
+            border-bottom: 1px solid var(--border-1);
             display: grid;
-            grid-template-columns: max-content 1fr;
-            gap: 0.5rem 1rem;
-            font-size: 0.9rem;
-            padding: 1rem;
-            background: #16171a;
-            border-radius: 8px;
-            border: 1px solid #232428;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            padding: 0 6px 0 14px;
+            user-select: none;
+            z-index: 100;
         }
 
-        .status dt {
-            color: #9aa0a6;
-        }
-
-        .status dd {
-            margin: 0;
-            font-family: ui-monospace, Consolas, monospace;
-        }
-
-        #peers {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        #peers li {
-            padding: 0.75rem 1rem;
-            background: #16171a;
-            border-radius: 8px;
-            border: 1px solid #232428;
-            margin-bottom: 0.5rem;
+        .titlebar-center {
+            font-size: 12px;
+            color: var(--fg-2);
+            font-weight: 500;
+            letter-spacing: 0.01em;
             display: flex;
-            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
         }
 
-        #peers li .name {
+        .titlebar-center .sep {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: var(--fg-3);
+        }
+
+        .win-ctrls {
+            grid-column: 3;
+            justify-self: end;
+            display: flex;
+            gap: 2px;
+        }
+
+        .win-btn {
+            width: 34px;
+            height: 28px;
+            background: transparent;
+            border: 0;
+            color: var(--fg-2);
+            cursor: pointer;
+            border-radius: var(--r-sm);
+            display: grid;
+            place-items: center;
+            transition: background var(--t-fast), color var(--t-fast);
+        }
+
+        .win-btn:hover {
+            background: var(--bg-3);
+            color: var(--fg-0);
+        }
+
+        .win-btn.close:hover {
+            background: #e81123;
+            color: white;
+        }
+
+        .win-btn svg {
+            width: 10px;
+            height: 10px;
+            stroke: currentColor;
+            stroke-width: 1.4;
+            fill: none;
+        }
+
+        /* ─── App grid ────────────────────────────────────────────── */
+        .app {
+            display: grid;
+            grid-template-columns: var(--sidebar-w) 1fr var(--inspector-w);
+            grid-template-rows: 1fr var(--statusbar-h);
+            grid-template-areas:
+                "sidebar main inspector"
+                "statusbar statusbar statusbar";
+            height: calc(100vh - var(--titlebar-h));
+            transition: grid-template-columns var(--t-slow);
+        }
+
+        .app.inspector-closed {
+            --inspector-w: 0px;
+        }
+
+        /* ─── Sidebar ─────────────────────────────────────────────── */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--bg-1);
+            border-right: 1px solid var(--border-1);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .nav-spacer {
+            flex: 1;
+        }
+
+        .nav-section {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--fg-3);
+            padding: 14px 12px 4px;
+        }
+
+        .nav-section:first-child {
+            padding-top: 4px;
+        }
+
+        .nav-btn {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            color: var(--fg-1);
+            font: inherit;
+            font-size: 13px;
+            text-align: left;
+            padding: 7px 10px 7px 12px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            transition: background var(--t-fast), color var(--t-fast);
+            display: grid;
+            grid-template-columns: 16px 1fr auto;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+
+        .nav-btn:hover {
+            background: var(--bg-3);
+            color: var(--fg-0);
+        }
+
+        .nav-btn[aria-current="page"] {
+            background: var(--bg-3);
+            color: var(--fg-0);
             font-weight: 500;
         }
 
-        #peers li .id {
-            color: #9aa0a6;
-            font-size: 0.85rem;
-            font-family: ui-monospace, monospace;
+        .nav-btn[aria-current="page"]::before {
+            content: "";
+            position: absolute;
+            left: -10px;
+            top: 6px;
+            bottom: 6px;
+            width: 2px;
+            border-radius: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow);
         }
 
-        .empty {
-            color: #6b7076;
-            font-style: italic;
-            padding: 0.75rem 0;
+        .nav-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.7;
+            transition: opacity var(--t-fast);
         }
 
-        code {
-            background: #232428;
-            padding: 0.1rem 0.35rem;
+        .nav-btn:hover svg,
+        .nav-btn[aria-current="page"] svg {
+            opacity: 1;
+        }
+
+        .nav-pill {
+            font-size: 10.5px;
+            font-family: var(--mono);
+            font-weight: 500;
+            padding: 1px 7px;
+            border-radius: var(--r-pill);
+            background: var(--bg-4);
+            color: var(--fg-2);
+            line-height: 1.6;
+            min-width: 20px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .nav-pill.has-peers {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .sidebar-footer {
+            padding: 10px 12px 2px;
+            border-top: 1px solid var(--border-1);
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--fg-3);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .kbd {
+            font-family: var(--mono);
+            font-size: 10.5px;
+            padding: 1px 5px;
+            border: 1px solid var(--border-2);
             border-radius: 4px;
+            color: var(--fg-2);
+            background: var(--bg-2);
+            line-height: 1.6;
+        }
+
+        /* ─── Main area (toolbar + content) ───────────────────────── */
+        .main {
+            grid-area: main;
+            display: grid;
+            grid-template-rows: var(--toolbar-h) 1fr;
+            min-width: 0;
+            overflow: hidden;
+            background: var(--bg-2);
+        }
+
+        /* ─── Toolbar ─────────────────────────────────────────────── */
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border-1);
+            background: var(--bg-2);
+            gap: 12px;
+        }
+
+        .tb-left {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .tb-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--fg-0);
+            letter-spacing: -0.005em;
+        }
+
+        .tb-count {
+            font-family: var(--mono);
+            font-size: 11.5px;
+            color: var(--fg-2);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tb-center {
+            justify-self: center;
+            min-width: 0;
+        }
+
+        .tb-search {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-3);
+            border: 1px solid var(--border-1);
+            border-radius: var(--r-md);
+            padding: 0 10px;
+            height: 30px;
+            width: 260px;
+            transition: border-color var(--t-fast), background var(--t-fast);
+        }
+
+        .tb-search:focus-within {
+            border-color: var(--border-3);
+            background: var(--bg-4);
+        }
+
+        .tb-search svg {
+            width: 13px;
+            height: 13px;
+            stroke: var(--fg-3);
+            stroke-width: 1.8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex-shrink: 0;
+        }
+
+        .tb-search input {
+            border: 0;
+            background: transparent;
+            color: var(--fg-0);
+            font: inherit;
+            font-size: 12.5px;
+            outline: none;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .tb-search input::placeholder {
+            color: var(--fg-3);
+        }
+
+        .toolbar[data-view="peers"] .tb-search {
+            display: flex;
+        }
+
+        .toolbar[data-view="resources"] .tb-search {
+            display: flex;
+        }
+
+        .tb-right {
+            justify-self: end;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .tb-btn {
+            height: 30px;
+            min-width: 30px;
+            padding: 0 8px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--fg-1);
+            border-radius: var(--r-md);
+            cursor: pointer;
+            display: inline-grid;
+            place-items: center;
+            transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+        }
+
+        .tb-btn:hover:not(:disabled) {
+            background: var(--bg-3);
+            color: var(--fg-0);
+        }
+
+        .tb-btn:disabled {
+            color: var(--fg-3);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .tb-btn.primary {
+            background: var(--accent);
+            color: var(--accent-fg);
+            border-color: var(--accent);
+            padding: 0 12px;
+            gap: 6px;
+            grid-auto-flow: column;
+            font-weight: 600;
+            font-size: 12.5px;
+        }
+
+        .tb-btn.primary:hover:not(:disabled) {
+            background: var(--accent-bright);
+            border-color: var(--accent-bright);
+            color: var(--accent-fg);
+        }
+
+        .tb-btn.primary:disabled {
+            background: var(--bg-3);
+            color: var(--fg-3);
+            border-color: var(--border-2);
+        }
+
+        .tb-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* tooltip */
+        [data-tip] {
+            position: relative;
+        }
+
+        [data-tip]::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-5);
+            color: var(--fg-0);
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 5px;
+            border: 1px solid var(--border-3);
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--t-fast);
+            transition-delay: 400ms;
+            z-index: 200;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+        }
+
+        [data-tip]:hover::after {
+            opacity: 1;
+        }
+
+        /* ─── Content ─────────────────────────────────────────────── */
+        .content {
+            overflow-y: auto;
+            padding: 32px 40px 48px;
+            position: relative;
+        }
+
+        .content::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 50% 0%, #4facfe09, transparent 55%),
+                radial-gradient(circle at 100% 100%, #4facfe05, transparent 50%);
+        }
+
+        .view {
+            display: none;
+            position: relative;
+            z-index: 1;
+        }
+
+        .view.active {
+            display: block;
+            animation: view-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        @keyframes view-in {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .view-head {
+            margin-bottom: 28px;
+        }
+
+        .view-title {
+            font-size: 19px;
+            font-weight: 600;
+            letter-spacing: -0.015em;
+            margin: 0 0 4px;
+        }
+
+        .view-sub {
+            color: var(--fg-1);
+            font-size: 13.5px;
+            margin: 0;
+        }
+
+        /* ─── Info bar ────────────────────────────────────────────── */
+        .infobar {
+            display: flex;
+            border-top: 1px solid var(--border-1);
+            border-bottom: 1px solid var(--border-1);
+            margin-bottom: 28px;
+        }
+
+        .infobar-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 13px 20px 13px 0;
+            min-width: 0;
+            flex: 1 1 160px;
+            position: relative;
+        }
+
+        .infobar-item+.infobar-item {
+            padding-left: 20px;
+        }
+
+        .infobar-item+.infobar-item::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 13px;
+            bottom: 13px;
+            width: 1px;
+            background: var(--border-1);
+        }
+
+        .infobar-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--fg-3);
+        }
+
+        .infobar-value {
+            font-family: var(--mono);
+            font-size: 12.5px;
+            color: var(--fg-0);
+            font-variant-numeric: tabular-nums;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* signal */
+        .signal {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 12px;
+            margin-right: 8px;
+            vertical-align: -2px;
+        }
+
+        .signal i {
+            display: block;
+            width: 2.5px;
+            background: var(--fg-3);
+            border-radius: 1px;
+            transition: background var(--t);
+        }
+
+        .signal i:nth-child(1) {
+            height: 4px;
+        }
+
+        .signal i:nth-child(2) {
+            height: 7px;
+        }
+
+        .signal i:nth-child(3) {
+            height: 10px;
+        }
+
+        .signal i:nth-child(4) {
+            height: 12px;
+        }
+
+        .signal.ok i {
+            background: var(--success);
+            animation: sig 2s ease-in-out infinite;
+        }
+
+        .signal.ok i:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .signal.ok i:nth-child(2) {
+            animation-delay: .15s;
+        }
+
+        .signal.ok i:nth-child(3) {
+            animation-delay: .3s;
+        }
+
+        .signal.ok i:nth-child(4) {
+            animation-delay: .45s;
+        }
+
+        .signal.warn i:nth-child(1),
+        .signal.warn i:nth-child(2) {
+            background: var(--warning);
+        }
+
+        .signal.err i:nth-child(1) {
+            background: var(--danger);
+        }
+
+        @keyframes sig {
+
+            0%,
+            100% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* ─── Radar hero ──────────────────────────────────────────── */
+        .radar-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0 40px;
+            gap: 22px;
+        }
+
+        .radar {
+            width: 220px;
+            height: 220px;
+        }
+
+        .radar svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .radar .ring {
+            fill: none;
+            stroke: var(--border-2);
+            stroke-width: 1;
+        }
+
+        .radar .ring-inner {
+            stroke: var(--border-1);
+        }
+
+        .radar .crosshair {
+            stroke: var(--border-1);
+            stroke-width: 1;
+        }
+
+        .radar .sweep {
+            transform-box: view-box;
+            transform-origin: 130px 130px;
+            animation: sweep 3.6s linear infinite;
+        }
+
+        @keyframes sweep {
+            from {
+                transform: rotate(0);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .radar .center {
+            fill: var(--accent);
+            filter: drop-shadow(0 0 6px var(--accent-glow));
+        }
+
+        .radar .center-pulse {
+            fill: var(--accent);
+            opacity: 0.3;
+            transform-origin: 130px 130px;
+            animation: cpulse 2.4s ease-out infinite;
+        }
+
+        @keyframes cpulse {
+            0% {
+                transform: scale(0.6);
+                opacity: 0.4;
+            }
+
+            100% {
+                transform: scale(2.4);
+                opacity: 0;
+            }
+        }
+
+        .radar-caption {
+            text-align: center;
+            max-width: 380px;
+        }
+
+        .radar-caption h3 {
+            margin: 0 0 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--fg-1);
+        }
+
+        .radar-caption p {
+            margin: 0 0 10px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--fg-2);
+        }
+
+        .radar-caption code {
+            font-family: var(--mono);
+            font-size: 12px;
+            background: var(--bg-3);
+            border: 1px solid var(--border-1);
+            padding: 1px 5px;
+            border-radius: 4px;
+            color: var(--fg-1);
+        }
+
+        .radar-meta {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--fg-3);
+            letter-spacing: 0.04em;
+        }
+
+        /* ─── Peer list ───────────────────────────────────────────── */
+        .peer-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .peer-item {
+            display: grid;
+            grid-template-columns: 32px 1fr auto;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            border-radius: var(--r-md);
+            background: var(--bg-3);
+            border: 1px solid var(--border-1);
+            transition:
+                border-color var(--t-fast),
+                background var(--t-fast),
+                box-shadow var(--t-fast);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .peer-item:hover {
+            border-color: var(--border-3);
+            background: var(--bg-4);
+        }
+
+        .peer-item.selected {
+            border-color: var(--accent);
+            background: var(--bg-4);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+
+        .peer-item.selected::before {
+            content: "";
+            position: absolute;
+            left: -1px;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 0 3px 3px 0;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-soft), #4facfe28);
+            border: 1px solid #4facfe40;
+            display: grid;
+            place-items: center;
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-bright);
+            text-transform: uppercase;
+            position: relative;
+        }
+
+        .avatar::after {
+            content: "";
+            position: absolute;
+            bottom: -1px;
+            right: -1px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--success);
+            border: 2px solid var(--bg-3);
+            box-shadow: 0 0 6px var(--success-glow);
+        }
+
+        .peer-info {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .peer-name {
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--fg-0);
+        }
+
+        .peer-id {
+            font-family: var(--mono);
+            font-size: 11.5px;
+            color: var(--fg-2);
+            letter-spacing: 0.01em;
+            font-variant-numeric: tabular-nums;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .peer-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity var(--t-fast);
+        }
+
+        .peer-item:hover .peer-actions,
+        .peer-item.selected .peer-actions {
+            opacity: 1;
+        }
+
+        .peer-action {
+            width: 28px;
+            height: 28px;
+            border: 0;
+            background: transparent;
+            color: var(--fg-2);
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: background var(--t-fast), color var(--t-fast);
+        }
+
+        .peer-action:hover {
+            background: var(--bg-5);
+            color: var(--fg-0);
+        }
+
+        .peer-action:disabled {
+            color: var(--fg-3);
+            cursor: not-allowed;
+        }
+
+        .peer-action svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* ─── Inspector ───────────────────────────────────────────── */
+        .inspector {
+            grid-area: inspector;
+            background: var(--bg-1);
+            border-left: 1px solid var(--border-1);
+            overflow: hidden auto;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .inspector-inner {
+            width: var(--inspector-w);
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .app.inspector-closed .inspector-inner {
+            display: none;
+        }
+
+        .inspector-head {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-1);
+        }
+
+        .inspector-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-soft), #4facfe30);
+            border: 1px solid #4facfe45;
+            display: grid;
+            place-items: center;
+            font-family: var(--mono);
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--accent-bright);
+            text-transform: uppercase;
+            box-shadow: 0 0 24px -6px var(--accent-glow);
+        }
+
+        .inspector-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--fg-0);
+            text-align: center;
+            word-break: break-word;
+        }
+
+        .inspector-sub {
+            font-family: var(--mono);
+            font-size: 11.5px;
+            color: var(--fg-2);
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .inspector-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            color: var(--fg-1);
+            padding: 3px 9px;
+            background: var(--bg-3);
+            border: 1px solid var(--border-1);
+            border-radius: var(--r-pill);
+        }
+
+        .inspector-status .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 6px var(--success-glow);
+        }
+
+        .inspector-section-title {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--fg-3);
+            margin-bottom: 8px;
+        }
+
+        .inspector-field {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border-1);
+        }
+
+        .inspector-field:last-child {
+            border-bottom: 0;
+        }
+
+        .inspector-field .k {
+            font-size: 11px;
+            color: var(--fg-3);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .inspector-field .v {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--fg-0);
+            word-break: break-all;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .inspector-copy {
+            width: 26px;
+            height: 26px;
+            border: 0;
+            background: transparent;
+            color: var(--fg-2);
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: background var(--t-fast), color var(--t-fast);
+        }
+
+        .inspector-copy:hover {
+            background: var(--bg-3);
+            color: var(--fg-0);
+        }
+
+        .inspector-copy svg {
+            width: 13px;
+            height: 13px;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .inspector-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .inspector-action {
+            display: grid;
+            place-items: center;
+            gap: 6px;
+            padding: 14px 10px;
+            border: 1px solid var(--border-1);
+            background: var(--bg-3);
+            border-radius: var(--r-md);
+            color: var(--fg-1);
+            font: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+        }
+
+        .inspector-action:hover:not(:disabled) {
+            background: var(--bg-4);
+            color: var(--fg-0);
+            border-color: var(--border-3);
+        }
+
+        .inspector-action:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .inspector-action svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .inspector-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 80px 20px 40px;
+            text-align: center;
+            color: var(--fg-2);
+        }
+
+        .inspector-placeholder .art {
+            width: 56px;
+            height: 56px;
+            color: var(--fg-3);
+        }
+
+        .inspector-placeholder .art svg {
+            width: 100%;
+            height: 100%;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .inspector-placeholder h4 {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--fg-1);
+        }
+
+        .inspector-placeholder p {
+            margin: 0;
+            font-size: 12px;
+            max-width: 220px;
+            line-height: 1.55;
+        }
+
+        /* ─── Status bar ──────────────────────────────────────────── */
+        .statusbar {
+            grid-area: statusbar;
+            height: var(--statusbar-h);
+            background: var(--bg-1);
+            border-top: 1px solid var(--border-1);
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            padding: 0 14px;
+            font-size: 11px;
+            color: var(--fg-2);
+            font-family: var(--mono);
+            font-variant-numeric: tabular-nums;
+            user-select: none;
+            gap: 16px;
+        }
+
+        .sb-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .sb-left {
+            justify-self: start;
+        }
+
+        .sb-center {
+            justify-self: center;
+            color: var(--fg-3);
+        }
+
+        .sb-right {
+            justify-self: end;
+            gap: 14px;
+        }
+
+        .sb-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--fg-3);
+            flex-shrink: 0;
+        }
+
+        .sb-dot.live {
+            background: var(--success);
+            box-shadow: 0 0 6px var(--success-glow);
+        }
+
+        .sb-dot.idle {
+            background: var(--fg-3);
+        }
+
+        /* ─── Empty state (non-radar) ─────────────────────────────── */
+        .empty-state {
+            padding: 48px 24px 52px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .empty-state .art {
+            width: 72px;
+            height: 72px;
+            color: var(--fg-3);
+            margin-bottom: 4px;
+        }
+
+        .empty-state .art svg {
+            width: 100%;
+            height: 100%;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.25;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .empty-state h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--fg-1);
+        }
+
+        .empty-state p {
+            margin: 0;
+            font-size: 13px;
+            max-width: 380px;
+            line-height: 1.6;
+            color: var(--fg-2);
+        }
+
+        .empty-state code {
+            font-family: var(--mono);
+            font-size: 12px;
+            background: var(--bg-3);
+            border: 1px solid var(--border-1);
+            padding: 1px 5px;
+            border-radius: 4px;
+            color: var(--fg-1);
+        }
+
+        /* ─── Command palette ─────────────────────────────────────── */
+        .cmdk-overlay {
+            position: fixed;
+            inset: 0;
+            background: #00000090;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 14vh;
+            z-index: 1000;
+            animation: fade 120ms ease-out;
+        }
+
+        .cmdk-overlay.open {
+            display: flex;
+        }
+
+        @keyframes fade {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .cmdk {
+            width: min(560px, 90vw);
+            background: var(--bg-3);
+            border: 1px solid var(--border-3);
+            border-radius: var(--r-lg);
+            box-shadow:
+                0 20px 60px -12px #00000099,
+                0 0 0 1px #ffffff05 inset;
+            overflow: hidden;
+            animation: cmdk-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        @keyframes cmdk-in {
+            from {
+                transform: translateY(-8px) scale(0.97);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .cmdk-input {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: var(--fg-0);
+            font: inherit;
+            font-size: 15px;
+            padding: 16px 20px;
+            outline: none;
+            border-bottom: 1px solid var(--border-1);
+        }
+
+        .cmdk-input::placeholder {
+            color: var(--fg-3);
+        }
+
+        .cmdk-list {
+            max-height: 340px;
+            overflow-y: auto;
+            padding: 6px;
+        }
+
+        .cmdk-group-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--fg-3);
+            padding: 8px 12px 6px;
+        }
+
+        .cmdk-item {
+            display: grid;
+            grid-template-columns: 20px 1fr auto;
+            align-items: center;
+            gap: 12px;
+            padding: 9px 12px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            color: var(--fg-1);
+            font-size: 13.5px;
+            transition: background var(--t-fast), color var(--t-fast);
+        }
+
+        .cmdk-item:hover,
+        .cmdk-item.sel {
+            background: var(--bg-5);
+            color: var(--fg-0);
+        }
+
+        .cmdk-item svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.7;
+        }
+
+        .cmdk-item .hint {
+            font-family: var(--mono);
+            font-size: 10.5px;
+            color: var(--fg-3);
+            padding: 1px 5px;
+            border: 1px solid var(--border-2);
+            border-radius: 4px;
+        }
+
+        .cmdk-empty {
+            padding: 32px 20px;
+            text-align: center;
+            color: var(--fg-3);
+            font-size: 13px;
+        }
+
+        /* ─── Context menu ────────────────────────────────────────── */
+        .ctx {
+            position: fixed;
+            background: var(--bg-4);
+            border: 1px solid var(--border-3);
+            border-radius: var(--r-md);
+            padding: 4px;
+            min-width: 200px;
+            box-shadow: 0 12px 36px -8px #00000099, 0 0 0 1px #ffffff05 inset;
+            z-index: 900;
+            display: none;
+        }
+
+        .ctx.open {
+            display: block;
+            animation: ctx-in 120ms cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        @keyframes ctx-in {
+            from {
+                transform: scale(0.96);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .ctx-item {
+            display: grid;
+            grid-template-columns: 16px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: var(--r-sm);
+            font-size: 13px;
+            color: var(--fg-1);
+            cursor: pointer;
+            user-select: none;
+            transition: background var(--t-fast), color var(--t-fast);
+        }
+
+        .ctx-item:hover:not(.disabled) {
+            background: var(--accent);
+            color: var(--accent-fg);
+        }
+
+        .ctx-item.disabled {
+            color: var(--fg-3);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .ctx-item svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .ctx-item .kbd {
+            font-family: var(--mono);
+            font-size: 10.5px;
+            color: inherit;
+            opacity: 0.55;
+            border: 0;
+            background: transparent;
+            padding: 0;
+        }
+
+        .ctx-sep {
+            height: 1px;
+            background: var(--border-2);
+            margin: 4px 6px;
+        }
+
+        /* ─── Toasts ──────────────────────────────────────────────── */
+        .toast-stack {
+            position: fixed;
+            bottom: calc(var(--statusbar-h) + 16px);
+            right: 16px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+            z-index: 500;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-4);
+            border: 1px solid var(--border-3);
+            color: var(--fg-0);
+            font-size: 12.5px;
+            padding: 9px 14px;
+            border-radius: var(--r-md);
+            box-shadow: 0 8px 24px -6px #00000099;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+            animation: toast-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+            font-weight: 500;
+            letter-spacing: 0.005em;
+        }
+
+        .toast.leaving {
+            animation: toast-out 180ms ease-in forwards;
+        }
+
+        @keyframes toast-in {
+            from {
+                transform: translateY(8px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toast-out {
+            to {
+                transform: translateY(6px);
+                opacity: 0;
+            }
+        }
+
+        .toast .ico {
+            width: 14px;
+            height: 14px;
+            stroke: var(--success);
+            fill: none;
+            stroke-width: 2.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex-shrink: 0;
+        }
+
+        /* ─── Focus rings ─────────────────────────────────────────── */
+        :focus {
+            outline: none;
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: var(--r-sm);
         }
     </style>
 </head>
 
 <body>
-    <h1>LocalOS</h1>
-    <p class="sub">LAN-first collaboration. No internet. No accounts.</p>
 
-    <dl class="status">
-        <dt>Version</dt>
-        <dd id="version">…</dd>
-        <dt>Peer ID</dt>
-        <dd id="peer-id">…</dd>
-        <dt>Firewall</dt>
-        <dd id="firewall">…</dd>
-        <dt>Clipboard</dt>
-        <dd id="clipboard">…</dd>
-        <dt>Data dir</dt>
-        <dd id="data-dir">…</dd>
-    </dl>
+    <!-- ─── Titlebar ─────────────────────────────────────────────── -->
+    <div class="titlebar" data-tauri-drag-region>
+        <div></div>
+        <div class="titlebar-center" data-tauri-drag-region>
+            <span>LocalOS</span>
+            <span class="sep"></span>
+            <span id="title-context">Peers</span>
+        </div>
+        <div class="win-ctrls">
+            <button class="win-btn" id="win-min" aria-label="Minimize">
+                <svg viewBox="0 0 10 10">
+                    <path d="M1 5h8" />
+                </svg>
+            </button>
+            <button class="win-btn" id="win-max" aria-label="Maximize">
+                <svg viewBox="0 0 10 10">
+                    <rect x="1.5" y="1.5" width="7" height="7" rx="1" />
+                </svg>
+            </button>
+            <button class="win-btn close" id="win-close" aria-label="Close">
+                <svg viewBox="0 0 10 10">
+                    <path d="M2 2l6 6M8 2L2 8" />
+                </svg>
+            </button>
+        </div>
+    </div>
 
-    <h2>Peers on this LAN</h2>
-    <ul id="peers">
-        <li class="empty">Searching…</li>
-    </ul>
+    <div class="app inspector-closed" id="app">
+
+        <!-- ─── Sidebar ──────────────────────────────────────────── -->
+        <aside class="sidebar">
+            <div class="nav-section">Workspace</div>
+            <nav class="nav">
+                <button class="nav-btn" data-view="peers" aria-current="page" data-tip="Discovery — Ctrl+1">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="9" cy="8" r="3.5" />
+                        <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+                        <path d="M16 5.2a3.5 3.5 0 0 1 0 6.6" />
+                        <path d="M17.5 14.2A6.5 6.5 0 0 1 21.5 20" />
+                    </svg>
+                    <span>Peers</span>
+                    <span class="nav-pill" id="peer-count">0</span>
+                </button>
+                <button class="nav-btn" data-view="transfers" data-tip="File transfers — Ctrl+2">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M7 4v14" />
+                        <path d="M3.5 7.5 7 4l3.5 3.5" />
+                        <path d="M17 20V6" />
+                        <path d="M13.5 16.5 17 20l3.5-3.5" />
+                    </svg>
+                    <span>Transfers</span>
+                    <span class="nav-pill">0</span>
+                </button>
+                <button class="nav-btn" data-view="chat" data-tip="Group chat — Ctrl+3">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z" />
+                    </svg>
+                    <span>Chat</span>
+                </button>
+                <button class="nav-btn" data-view="resources" data-tip="Advertised resources — Ctrl+4">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        <path d="M3.27 6.96 12 12.01l8.73-5.05" />
+                        <path d="M12 22.08V12" />
+                    </svg>
+                    <span>Resources</span>
+                </button>
+            </nav>
+
+            <div class="nav-spacer"></div>
+
+            <nav class="nav">
+                <button class="nav-btn" data-view="settings" data-tip="Preferences — Ctrl+5">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <span>v<span id="version">…</span></span>
+                <span><span class="kbd">Ctrl</span> <span class="kbd">K</span></span>
+            </div>
+        </aside>
+
+        <!-- ─── Main ─────────────────────────────────────────────── -->
+        <div class="main">
+            <!-- Toolbar -->
+            <div class="toolbar" id="toolbar" data-view="peers">
+                <div class="tb-left">
+                    <span class="tb-title" id="tb-title">Peers</span>
+                    <span class="tb-count" id="tb-count">Listening…</span>
+                </div>
+                <div class="tb-center">
+                    <label class="tb-search" aria-label="Search peers">
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="M20 20l-3.5-3.5" />
+                        </svg>
+                        <input id="peer-search" type="text" placeholder="Search peers…" spellcheck="false"
+                            autocomplete="off" />
+                    </label>
+                </div>
+                <div class="tb-right">
+                    <button class="tb-btn" id="tb-refresh" data-tip="Refresh (Ctrl+R)" aria-label="Refresh">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M3 12a9 9 0 0 1 15.5-6.4L21 8" />
+                            <path d="M21 3v5h-5" />
+                            <path d="M21 12a9 9 0 0 1-15.5 6.4L3 16" />
+                            <path d="M3 21v-5h5" />
+                        </svg>
+                    </button>
+                    <button class="tb-btn primary" id="tb-primary" disabled
+                        data-tip="Requires session layer — Engineer A">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                        </svg>
+                        <span>Start session</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <main class="content">
+                <section class="view active" id="view-peers">
+                    <ul class="peer-list" id="peers"></ul>
+                </section>
+
+                <section class="view" id="view-transfers">
+                    <div class="view-head">
+                        <h1 class="view-title">Transfers</h1>
+                        <p class="view-sub">File and folder transfers, queued and in progress.</p>
+                    </div>
+                    <div class="empty-state">
+                        <div class="art"><svg viewBox="0 0 96 96">
+                                <rect x="14" y="24" width="68" height="48" rx="6" />
+                                <path d="M30 48h36" />
+                                <path d="M30 58h22" />
+                                <path d="M42 36h12" />
+                            </svg></div>
+                        <h3>No active transfers</h3>
+                        <p>Select files from a peer card to send them. Progress, throughput, and ETA will appear here
+                            once a transfer starts.</p>
+                    </div>
+                </section>
+
+                <section class="view" id="view-chat">
+                    <div class="view-head">
+                        <h1 class="view-title">Chat</h1>
+                        <p class="view-sub">Group chat scoped to a session.</p>
+                    </div>
+                    <div class="empty-state">
+                        <div class="art"><svg viewBox="0 0 96 96">
+                                <path d="M78 44a30 30 0 0 1-30 30H26l-8 8V44a30 30 0 1 1 60 0z" />
+                                <circle cx="36" cy="44" r="2.5" fill="currentColor" stroke="none" />
+                                <circle cx="48" cy="44" r="2.5" fill="currentColor" stroke="none" />
+                                <circle cx="60" cy="44" r="2.5" fill="currentColor" stroke="none" />
+                            </svg></div>
+                        <h3>Not in a session</h3>
+                        <p>Start a session from the Peers tab, or join one with a short code. Messages are signed by
+                            your session key and never leave the LAN.</p>
+                    </div>
+                </section>
+
+                <section class="view" id="view-resources">
+                    <div class="view-head">
+                        <h1 class="view-title">Resources</h1>
+                        <p class="view-sub">What peers nearby are offering.</p>
+                    </div>
+                    <div class="empty-state">
+                        <div class="art"><svg viewBox="0 0 96 96">
+                                <circle cx="42" cy="42" r="24" />
+                                <path d="M60 60l18 18" />
+                                <path d="M33 42h18" />
+                                <path d="M42 33v18" />
+                            </svg></div>
+                        <h3>No resources advertised</h3>
+                        <p>Peers can advertise files, hardware, skills, and notes. When they do, Hostel Brain search
+                            will surface the matches here.</p>
+                    </div>
+                </section>
+
+                <section class="view" id="view-settings">
+                    <div class="view-head">
+                        <h1 class="view-title">Settings</h1>
+                        <p class="view-sub">Display, identity, and privacy.</p>
+                    </div>
+                    <div class="infobar">
+                        <div class="infobar-item">
+                            <span class="infobar-label">Data directory</span>
+                            <span class="infobar-value" id="data-dir">…</span>
+                        </div>
+                        <div class="infobar-item">
+                            <span class="infobar-label">Config directory</span>
+                            <span class="infobar-value" id="config-dir">…</span>
+                        </div>
+                    </div>
+                    <div class="empty-state">
+                        <div class="art"><svg viewBox="0 0 96 96">
+                                <circle cx="48" cy="48" r="20" />
+                                <circle cx="48" cy="48" r="6" fill="currentColor" stroke="none" />
+                                <path d="M48 12v10" />
+                                <path d="M48 74v10" />
+                                <path d="M12 48h10" />
+                                <path d="M74 48h10" />
+                                <path d="M22.5 22.5l7 7" />
+                                <path d="M66.5 66.5l7 7" />
+                                <path d="M73.5 22.5l-7 7" />
+                                <path d="M29.5 66.5l-7 7" />
+                            </svg></div>
+                        <h3>More settings coming soon</h3>
+                        <p>Display name override, clipboard opt-in, and notification preferences will live here. Nothing
+                            here changes your data yet.</p>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- ─── Inspector ────────────────────────────────────────── -->
+        <aside class="inspector">
+            <div class="inspector-inner" id="inspector-inner">
+                <div class="inspector-placeholder" id="inspector-placeholder">
+                    <div class="art"><svg viewBox="0 0 96 96">
+                            <circle cx="48" cy="38" r="14" />
+                            <path d="M22 82a26 26 0 0 1 52 0" />
+                        </svg></div>
+                    <h4>No peer selected</h4>
+                    <p>Choose a peer from the list to see their details.</p>
+                </div>
+                <div id="inspector-body" style="display:none"></div>
+            </div>
+        </aside>
+
+        <!-- ─── Status bar ───────────────────────────────────────── -->
+        <footer class="statusbar">
+            <div class="sb-item sb-left">
+                <span class="sb-dot" id="sb-peer-dot"></span>
+                <span id="sb-peer-text">No peers</span>
+            </div>
+            <div class="sb-item sb-center">mDNS · _localos._udp.local</div>
+            <div class="sb-item sb-right">
+                <span class="sb-item">
+                    <span class="sb-dot" id="sb-fw-dot"></span>
+                    <span id="sb-fw-text">Firewall: …</span>
+                </span>
+                <span id="sb-self">…</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ─── Command palette ──────────────────────────────────────── -->
+    <div class="cmdk-overlay" id="cmdk-overlay">
+        <div class="cmdk" role="dialog" aria-label="Command palette">
+            <input class="cmdk-input" id="cmdk-input" type="text" placeholder="Type a command or search peers…"
+                autocomplete="off" spellcheck="false" />
+            <div class="cmdk-list" id="cmdk-list"></div>
+        </div>
+    </div>
+
+    <!-- ─── Context menu ─────────────────────────────────────────── -->
+    <div class="ctx" id="ctx"></div>
+
+    <!-- ─── Toasts ──────────────────────────────────────────────── -->
+    <div class="toast-stack" id="toasts"></div>
 
     <script src="main.js"></script>
 </body>
