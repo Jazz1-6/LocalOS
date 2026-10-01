@@ -82,6 +82,7 @@ pub fn save_settings(
     let settings = Settings {
         display_name,
         clipboard_sync_enabled: settings.clipboard_sync_enabled,
+        demo_mode: settings.demo_mode,
     };
 
     // Persist to disk first

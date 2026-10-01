@@ -15,19 +15,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    /// Name shown to other peers on the LAN.
     pub display_name: String,
-
-    /// Whether this device participates in ghost clipboard sync.
-    /// Off by default — opt-in.
     pub clipboard_sync_enabled: bool,
+    /// When true, the UI renders sample data instead of querying
+    /// real engine state. Off by default. Intended for demos and
+    /// portfolio screenshots before the engine ships.
+    pub demo_mode: bool,
 }
-
 impl Default for Settings {
     fn default() -> Self {
         Self {
             display_name: default_display_name(),
             clipboard_sync_enabled: false,
+            demo_mode: false,
         }
     }
 }
@@ -101,6 +101,7 @@ mod tests {
         let original = Settings {
             display_name: "Test Device".to_string(),
             clipboard_sync_enabled: true,
+            demo_mode: true,
         };
         original.save(&path).unwrap();
 
