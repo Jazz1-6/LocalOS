@@ -97,6 +97,9 @@ async function refreshStatus() {
         setText("config-dir", s.config_dir);
         setText("sb-self", s.peer_id);
         setText("sb-fw-text", `Firewall: ${s.firewall_status}`);
+        setText("settings-version", s.version);
+        setText("settings-data-dir", s.data_dir);
+        setText("settings-peer-id", s.peer_id);
 
         const fwDot = document.getElementById("sb-fw-dot");
         fwDot.classList.remove("live");
@@ -104,6 +107,115 @@ async function refreshStatus() {
         if (fw.includes("allowed")) fwDot.classList.add("live");
     } catch (e) {
         console.error("get_status failed", e);
+    }
+}
+// ─── Settings ───────────────────────────────────────────────────
+let loadedSettings = null;
+
+async function refreshSettings() {
+    try {
+        const s = await invoke("get_settings");
+        loadedSettings = s;
+
+        const nameInput = document.getElementById("settings-display-name");
+        if (nameInput && document.activeElement !== nameInput) {
+            nameInput.value = s.display_name;
+        }
+        updateSaveButton();
+
+        const syncToggle = document.getElementById("settings-clipboard-sync");
+        if (syncToggle) syncToggle.checked = !!s.clipboard_sync_enabled;
+    } catch (e) {
+        console.error("get_settings failed", e);
+    }
+}
+
+function updateSaveButton() {
+    const input = document.getElementById("settings-display-name");
+    const btn = document.getElementById("settings-save-name");
+    if (!input || !btn || !loadedSettings) return;
+    const current = input.value.trim();
+    const original = (loadedSettings.display_name || "").trim();
+    btn.disabled = current === original || current.length === 0;
+}
+
+async function saveDisplayName() {
+    const input = document.getElementById("settings-display-name");
+    if (!input || !loadedSettings) return;
+    const name = input.value.trim();
+    if (!name) return;
+
+    try {
+        await invoke("save_settings", {
+            settings: {
+                display_name: name,
+                clipboard_sync_enabled: !!loadedSettings.clipboard_sync_enabled,
+            },
+        });
+        loadedSettings = { ...loadedSettings, display_name: name };
+        updateSaveButton();
+        toast("Display name saved");
+        refreshStatus();
+    } catch (e) {
+        console.error("save_settings failed", e);
+        toast(`Save failed: ${e}`);
+    }
+}
+
+async function toggleClipboardSync(enabled) {
+    if (!loadedSettings) return;
+    try {
+        await invoke("save_settings", {
+            settings: {
+                display_name: loadedSettings.display_name,
+                clipboard_sync_enabled: enabled,
+            },
+        });
+        loadedSettings = { ...loadedSettings, clipboard_sync_enabled: enabled };
+        toast(enabled ? "Clipboard sync enabled" : "Clipboard sync disabled");
+    } catch (e) {
+        console.error("save_settings failed", e);
+        toast(`Save failed: ${e}`);
+        document.getElementById("settings-clipboard-sync").checked =
+            !!loadedSettings.clipboard_sync_enabled;
+    }
+}
+
+function initSettings() {
+    const input = document.getElementById("settings-display-name");
+    const saveBtn = document.getElementById("settings-save-name");
+    const toggle = document.getElementById("settings-clipboard-sync");
+    const copyPeerId = document.getElementById("settings-copy-peer-id");
+    const copyRepo = document.getElementById("settings-copy-repo");
+    const copyDataDir = document.getElementById("settings-copy-data-dir");
+
+    if (input) {
+        input.addEventListener("input", updateSaveButton);
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                if (!saveBtn.disabled) saveDisplayName();
+            }
+        });
+    }
+    if (saveBtn) saveBtn.addEventListener("click", saveDisplayName);
+    if (toggle) toggle.addEventListener("change", (e) => toggleClipboardSync(e.target.checked));
+    if (copyPeerId) {
+        copyPeerId.addEventListener("click", async () => {
+            const s = await invoke("get_status");
+            copyText(s.peer_id, "Peer ID copied");
+        });
+    }
+    if (copyRepo) {
+        copyRepo.addEventListener("click", () => {
+            copyText("https://github.com/Jazz1-6/localos", "Repository URL copied");
+        });
+    }
+    if (copyDataDir) {
+        copyDataDir.addEventListener("click", async () => {
+            const s = await invoke("get_status");
+            copyText(s.data_dir, "Data directory copied");
+        });
     }
 }
 
@@ -608,9 +720,12 @@ function esc(s) {
 // ─── Wiring ─────────────────────────────────────────────────────
 initWindow();
 initNav();
+initSettings();
 refreshStatus();
 refreshPeers();
+refreshSettings();
 renderInspector();
 setInterval(refreshStatus, 3000);
 setInterval(refreshPeers, 5000);
+setInterval(refreshSettings, 5000);
 listen("peer-discovered", () => refreshPeers());

@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>LocalOS</title>
+
     <style>
         :root {
             color-scheme: dark;
@@ -15,6 +16,8 @@
             --bg-3: #17181c;
             --bg-4: #1e2025;
             --bg-5: #26282e;
+
+
 
             /* borders */
             --border-1: #1c1d22;
@@ -1575,6 +1578,203 @@
             outline-offset: 2px;
             border-radius: var(--r-sm);
         }
+
+        /* ─── Settings page ─────────────────────────────────────────── */
+        .settings-section {
+            margin-bottom: 40px;
+            max-width: 720px;
+        }
+
+        .settings-section-title {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--fg-3);
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-1);
+            margin-bottom: 4px;
+        }
+
+        .settings-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 24px;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-1);
+        }
+
+        .settings-row:last-child {
+            border-bottom: 0;
+        }
+
+        .settings-label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            min-width: 0;
+        }
+
+        .settings-label .k {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--fg-0);
+        }
+
+        .settings-label .desc {
+            font-size: 12px;
+            color: var(--fg-2);
+            line-height: 1.5;
+        }
+
+        .settings-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-self: end;
+        }
+
+        .settings-value {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--fg-1);
+            max-width: 380px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .settings-input {
+            width: 260px;
+            height: 32px;
+            padding: 0 10px;
+            background: var(--bg-3);
+            border: 1px solid var(--border-1);
+            border-radius: var(--r-md);
+            color: var(--fg-0);
+            font: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: border-color var(--t-fast), background var(--t-fast);
+        }
+
+        .settings-input:hover {
+            border-color: var(--border-2);
+        }
+
+        .settings-input:focus {
+            border-color: var(--accent);
+            background: var(--bg-4);
+        }
+
+        .settings-save {
+            height: 32px;
+            padding: 0 14px;
+            background: var(--accent);
+            color: var(--accent-fg);
+            border: 1px solid var(--accent);
+            border-radius: var(--r-md);
+            font: inherit;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity var(--t-fast), background var(--t-fast);
+        }
+
+        .settings-save:hover:not(:disabled) {
+            background: var(--accent-bright);
+            border-color: var(--accent-bright);
+        }
+
+        .settings-save:disabled {
+            background: var(--bg-3);
+            color: var(--fg-3);
+            border-color: var(--border-2);
+            cursor: not-allowed;
+        }
+
+        .settings-icon-btn {
+            width: 30px;
+            height: 30px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--fg-2);
+            border-radius: var(--r-md);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+        }
+
+        .settings-icon-btn:hover {
+            background: var(--bg-3);
+            color: var(--fg-0);
+            border-color: var(--border-2);
+        }
+
+        .settings-icon-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            stroke-width: 1.6;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 22px;
+            cursor: pointer;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .switch-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--bg-5);
+            border: 1px solid var(--border-3);
+            border-radius: 999px;
+            transition: background var(--t-fast), border-color var(--t-fast);
+        }
+
+        .switch-slider::before {
+            content: "";
+            position: absolute;
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            top: 3px;
+            background: var(--fg-1);
+            border-radius: 50%;
+            transition: transform var(--t-fast), background var(--t-fast);
+        }
+
+        .switch input:checked+.switch-slider {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .switch input:checked+.switch-slider::before {
+            transform: translateX(16px);
+            background: #ffffff;
+        }
+
+        .switch input:focus-visible+.switch-slider {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
     </style>
 </head>
 
@@ -1772,32 +1972,109 @@
                         <h1 class="view-title">Settings</h1>
                         <p class="view-sub">Display, identity, and privacy.</p>
                     </div>
-                    <div class="infobar">
-                        <div class="infobar-item">
-                            <span class="infobar-label">Data directory</span>
-                            <span class="infobar-value" id="data-dir">…</span>
+
+                    <!-- Identity -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Identity</div>
+
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <span class="k">Display name</span>
+                                <span class="desc">Shown to other peers on this LAN.</span>
+                            </div>
+                            <div class="settings-control">
+                                <input id="settings-display-name" class="settings-input" type="text" spellcheck="false"
+                                    maxlength="64" placeholder="LocalOS" />
+                                <button class="settings-save" id="settings-save-name" disabled>Save</button>
+                            </div>
                         </div>
-                        <div class="infobar-item">
-                            <span class="infobar-label">Config directory</span>
-                            <span class="infobar-value" id="config-dir">…</span>
+
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <span class="k">Peer ID</span>
+                                <span class="desc">Derived from this process. Changes on restart.</span>
+                            </div>
+                            <div class="settings-control">
+                                <span class="settings-value" id="settings-peer-id">…</span>
+                                <button class="settings-icon-btn" id="settings-copy-peer-id" title="Copy peer ID">
+                                    <svg viewBox="0 0 24 24">
+                                        <rect x="9" y="9" width="11" height="11" rx="2" />
+                                        <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="empty-state">
-                        <div class="art"><svg viewBox="0 0 96 96">
-                                <circle cx="48" cy="48" r="20" />
-                                <circle cx="48" cy="48" r="6" fill="currentColor" stroke="none" />
-                                <path d="M48 12v10" />
-                                <path d="M48 74v10" />
-                                <path d="M12 48h10" />
-                                <path d="M74 48h10" />
-                                <path d="M22.5 22.5l7 7" />
-                                <path d="M66.5 66.5l7 7" />
-                                <path d="M73.5 22.5l-7 7" />
-                                <path d="M29.5 66.5l-7 7" />
-                            </svg></div>
-                        <h3>More settings coming soon</h3>
-                        <p>Display name override, clipboard opt-in, and notification preferences will live here. Nothing
-                            here changes your data yet.</p>
+
+                    <!-- Privacy -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Privacy</div>
+
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <span class="k">Ghost clipboard sync</span>
+                                <span class="desc">Copy on one device, paste on another. Off by default.</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="switch">
+                                    <input type="checkbox" id="settings-clipboard-sync" />
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- About -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">About</div>
+
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <span class="k">Version</span>
+                            </div>
+                            <div class="settings-control">
+                                <span class="settings-value" id="settings-version">…</span>
+                            </div>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <span class="k">License</span>
+                            </div>
+                            <div class="settings-control">
+                                <span class="settings-value">MIT OR Apache-2.0</span>
+                            </div>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <span class="k">Repository</span>
+                                <span class="desc">github.com/Jazz1-6/localos</span>
+                            </div>
+                            <div class="settings-control">
+                                <button class="settings-icon-btn" id="settings-copy-repo" title="Copy URL">
+                                    <svg viewBox="0 0 24 24">
+                                        <rect x="9" y="9" width="11" height="11" rx="2" />
+                                        <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <span class="k">Data directory</span>
+                            </div>
+                            <div class="settings-control">
+                                <span class="settings-value" id="settings-data-dir">…</span>
+                                <button class="settings-icon-btn" id="settings-copy-data-dir" title="Copy path">
+                                    <svg viewBox="0 0 24 24">
+                                        <rect x="9" y="9" width="11" height="11" rx="2" />
+                                        <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </main>

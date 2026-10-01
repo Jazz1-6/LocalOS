@@ -1,15 +1,19 @@
 //! Shared application state, injected into every Tauri command.
-//!
-//! Built once in `main.rs` during Tauri's `setup` hook and managed
-//! by the Tauri runtime. Commands access it via `State<'_, AppState>`.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 
-use tokio::sync::RwLock;
+use tokio::sync::RwLock as TokioRwLock;
 
 use localos_platform::{NativeClipboard, NativeDiscovery, NativeFirewall, NativePaths};
 use localos_traits::PeerAd;
+
+use crate::settings::Settings;
+
+/// QUIC listen port advertised over mDNS. Temporary — Engineer A
+/// will replace this with the real port when the session layer ships.
+pub const LISTEN_PORT: u16 = 51000;
 
 /// All long-lived services the UI needs to talk to.
 pub struct AppState {
@@ -29,8 +33,11 @@ pub struct AppState {
     pub self_peer_id: String,
 
     /// Peers currently seen on the LAN, keyed by peer_id.
-    ///
-    /// A `RwLock` because the background discovery task writes and
-    /// Tauri commands read. Never held across an `.await` (Rules §7.7).
-    pub peers: Arc<RwLock<HashMap<String, PeerAd>>>,
+    pub peers: Arc<TokioRwLock<HashMap<String, PeerAd>>>,
+
+    /// User-configurable settings, shared mutable state.
+    pub settings: Arc<RwLock<Settings>>,
+
+    /// On-disk path of the settings file.
+    pub settings_path: PathBuf,
 }

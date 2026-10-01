@@ -1,30 +1,24 @@
 ﻿//! LocalOS desktop binary.
-//!
-//! Wires core + platform + ui. Opens a Tauri window, advertises this
-//! peer over mDNS, and exposes platform services to the frontend.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use tauri::{Emitter, Manager};
-use tokio::sync::RwLock;
+use tokio::sync::RwLock as TokioRwLock;
 
 use localos_platform::{NativeClipboard, NativeDiscovery, NativeFirewall, NativePaths};
 use localos_traits::{AppPaths, Discovery, PeerAd};
 
 mod commands;
+mod settings;
 mod state;
 
-use state::AppState;
-
-/// QUIC listen port advertised over mDNS. Temporary until the session
-/// layer exists — Engineer A will replace this with the real port.
-const LISTEN_PORT: u16 = 51000;
+use settings::Settings;
+use state::{AppState, LISTEN_PORT};
 
 fn main() {
-    // `mdns_sd=off` silences a benign shutdown race inside the crate.
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -39,12 +33,13 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::get_status,
             commands::list_peers,
+            commands::get_settings,
+            commands::save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
-/// Build all platform services, start discovery, register state.
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // ─── Platform services ──────────────────────────────────────
     let paths = NativePaths::new()?;
@@ -54,26 +49,32 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!(data_dir = ?paths.data_dir(), "platform services ready");
 
-        // ─── Identity ───────────────────────────────────────────────
-    // Temporary: derived from the OS process id. Engineer A's
-    // identity module will derive this from an Ed25519 keypair.
-    // Using the PID lets us run two instances side-by-side for
-    // local testing of mDNS discovery.
+    // ─── Settings ───────────────────────────────────────────────
+    let settings_path = paths.config_dir().join("settings.json");
+    let settings = Settings::load(&settings_path);
+    tracing::info!(?settings, ?settings_path, "settings loaded");
+
+    // ─── Identity ───────────────────────────────────────────────
     let pid = std::process::id();
     let self_peer_id = format!("localos-{pid}");
 
     // ─── Advertise ourselves ────────────────────────────────────
-        let self_ad = PeerAd {
+    let self_ad = PeerAd {
         peer_id: self_peer_id.clone(),
-        name: format!("LocalOS-{pid}"),
+        name: settings.display_name.clone(),
         session_id: None,
         port: LISTEN_PORT,
     };
     discovery.advertise(&self_ad)?;
-    tracing::info!(peer_id = %self_peer_id, "advertising self");
+    tracing::info!(
+        peer_id = %self_peer_id,
+        name = %settings.display_name,
+        "advertising self"
+    );
 
     // ─── Peers map + background listener ────────────────────────
-    let peers: Arc<RwLock<HashMap<String, PeerAd>>> = Arc::new(RwLock::new(HashMap::new()));
+    let peers: Arc<TokioRwLock<HashMap<String, PeerAd>>> =
+        Arc::new(TokioRwLock::new(HashMap::new()));
 
     let mut rx = discovery.browse()?;
     let peers_for_task = peers.clone();
@@ -84,7 +85,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         tracing::info!("discovery listener started");
         while let Some(peer) = rx.recv().await {
             if peer.peer_id == self_id_for_task {
-                // mDNS echoes our own advertisement. Ignore it.
                 continue;
             }
             tracing::info!(?peer, "peer discovered");
@@ -92,7 +92,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             {
                 let mut guard = peers_for_task.write().await;
                 guard.insert(peer.peer_id.clone(), peer.clone());
-            } // guard dropped here, before any await below
+            }
 
             let _ = app_handle.emit("peer-discovered", &peer);
         }
@@ -107,6 +107,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         paths,
         self_peer_id,
         peers,
+        settings: Arc::new(RwLock::new(settings)),
+        settings_path,
     });
 
     Ok(())
