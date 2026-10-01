@@ -7,6 +7,7 @@ let selectedPeerId = null;
 let currentView = "peers";
 let peerFilter = "";
 let lastScan = Date.now();
+let loadedSettings = null;
 
 // ─── Window controls ────────────────────────────────────────────
 function initWindow() {
@@ -36,6 +37,7 @@ function switchView(view) {
 
     document.getElementById("toolbar").dataset.view = view;
     updateToolbar();
+
     if (view === "transfers") renderTransfers();
     if (view === "chat") renderChat();
     if (view === "resources") renderResources();
@@ -53,9 +55,7 @@ function updateToolbar() {
     switch (currentView) {
         case "peers":
             titleEl.textContent = "Peers";
-            countEl.textContent = peersCount === 0
-                ? "Listening…"
-                : `${peersCount} on this LAN`;
+            countEl.textContent = peersCount === 0 ? "Listening…" : `${peersCount} on this LAN`;
             primaryLabel.textContent = "Start session";
             primary.disabled = true;
             primary.dataset.tip = "Requires session layer — Engineer A";
@@ -112,9 +112,8 @@ async function refreshStatus() {
         console.error("get_status failed", e);
     }
 }
-// ─── Settings ───────────────────────────────────────────────────
-let loadedSettings = null;
 
+// ─── Settings ───────────────────────────────────────────────────
 async function refreshSettings() {
     try {
         const s = await invoke("get_settings");
@@ -133,6 +132,7 @@ async function refreshSettings() {
         if (demoToggle) demoToggle.checked = !!s.demo_mode;
 
         applyDemoState();
+        applyTheme();
     } catch (e) {
         console.error("get_settings failed", e);
     }
@@ -144,7 +144,6 @@ function applyDemoState() {
     const banner = document.getElementById("demo-banner");
     if (banner) banner.style.display = on ? "flex" : "none";
 
-    // Re-render the current view so mock/real data swaps immediately.
     if (currentView === "transfers") renderTransfers();
     if (currentView === "chat") renderChat();
     if (currentView === "resources") renderResources();
@@ -171,6 +170,7 @@ async function saveDisplayName() {
                 display_name: name,
                 clipboard_sync_enabled: !!loadedSettings.clipboard_sync_enabled,
                 demo_mode: !!loadedSettings.demo_mode,
+                theme: loadedSettings.theme ?? "system",
             },
         });
         loadedSettings = { ...loadedSettings, display_name: name };
@@ -191,6 +191,7 @@ async function toggleClipboardSync(enabled) {
                 display_name: loadedSettings.display_name,
                 clipboard_sync_enabled: enabled,
                 demo_mode: !!loadedSettings.demo_mode,
+                theme: loadedSettings.theme ?? "system",
             },
         });
         loadedSettings = { ...loadedSettings, clipboard_sync_enabled: enabled };
@@ -233,6 +234,7 @@ function initSettings() {
                         display_name: loadedSettings.display_name,
                         clipboard_sync_enabled: !!loadedSettings.clipboard_sync_enabled,
                         demo_mode: enabled,
+                        theme: loadedSettings.theme ?? "system",
                     },
                 });
                 loadedSettings = { ...loadedSettings, demo_mode: enabled };
@@ -245,6 +247,7 @@ function initSettings() {
             }
         });
     }
+
     if (copyPeerId) {
         copyPeerId.addEventListener("click", async () => {
             const s = await invoke("get_status");
@@ -263,88 +266,302 @@ function initSettings() {
         });
     }
 }
+
+// ─── Theme ──────────────────────────────────────────────────────
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+function resolveTheme(choice) {
+    if (choice === "light") return "light";
+    if (choice === "dark") return "dark";
+    return systemDark.matches ? "dark" : "light";
+}
+
+function applyTheme() {
+    const choice = loadedSettings?.theme ?? "system";
+    const resolved = resolveTheme(choice);
+    document.documentElement.dataset.theme = resolved;
+
+    document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+        btn.setAttribute("aria-selected", btn.dataset.themeChoice === choice ? "true" : "false");
+    });
+}
+
+systemDark.addEventListener("change", () => {
+    if ((loadedSettings?.theme ?? "system") === "system") applyTheme();
+});
+
+async function setThemeChoice(choice) {
+    if (!loadedSettings) return;
+    try {
+        await invoke("save_settings", {
+            settings: {
+                display_name: loadedSettings.display_name,
+                clipboard_sync_enabled: !!loadedSettings.clipboard_sync_enabled,
+                demo_mode: !!loadedSettings.demo_mode,
+                theme: choice,
+            },
+        });
+        loadedSettings = { ...loadedSettings, theme: choice };
+        applyTheme();
+        toast(choice === "system" ? "Following system theme" : `Theme: ${choice}`);
+    } catch (e) {
+        console.error("save_settings failed", e);
+        toast(`Save failed: ${e}`);
+    }
+}
+
+function initTheme() {
+    document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+        btn.addEventListener("click", () => setThemeChoice(btn.dataset.themeChoice));
+    });
+}
+
+// ─── Peers ──────────────────────────────────────────────────────
+async function refreshPeers() {
+    try {
+        peers = await invoke("list_peers");
+        lastScan = Date.now();
+
+        document.getElementById("peer-count").textContent = peers.length;
+        document.getElementById("peer-count").classList.toggle("has-peers", peers.length > 0);
+
+        const sbDot = document.getElementById("sb-peer-dot");
+        const sbText = document.getElementById("sb-peer-text");
+        if (peers.length === 0) {
+            sbDot.className = "sb-dot idle";
+            sbText.textContent = "No peers";
+        } else {
+            sbDot.className = "sb-dot live";
+            sbText.textContent = `${peers.length} peer${peers.length === 1 ? "" : "s"} on LAN`;
+        }
+
+        renderPeers();
+        updateToolbar();
+    } catch (e) {
+        console.error("list_peers failed", e);
+    }
+}
+
+function renderPeers() {
+    const ul = document.getElementById("peers");
+    if (peers.length === 0) { ul.innerHTML = radarEmpty(); return; }
+
+    const filtered = peers.filter((p) => {
+        if (!peerFilter) return true;
+        const q = peerFilter.toLowerCase();
+        return p.name.toLowerCase().includes(q) || p.peer_id.toLowerCase().includes(q);
+    });
+
+    if (filtered.length === 0) {
+        ul.innerHTML = `
+            <li class="empty-state">
+                <h3>No matches</h3>
+                <p>No peer matches "${esc(peerFilter)}".</p>
+            </li>`;
+        return;
+    }
+
+    ul.innerHTML = filtered.map(peerCard).join("");
+
+    ul.querySelectorAll(".peer-item").forEach((el) => {
+        const id = el.dataset.peerId;
+        el.addEventListener("click", () => selectPeer(id));
+        el.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            selectPeer(id);
+            openCtxPeer(e.clientX, e.clientY, id);
+        });
+    });
+}
+
+function peerCard(p) {
+    const initials = (p.name || "??").replace(/[^a-zA-Z0-9]/g, "").slice(0, 2) || "??";
+    const selected = p.peer_id === selectedPeerId ? " selected" : "";
+    return `
+        <li class="peer-item${selected}" data-peer-id="${esc(p.peer_id)}">
+            <div class="avatar">${esc(initials)}</div>
+            <div class="peer-info">
+                <span class="peer-name">${esc(p.name)}</span>
+                <span class="peer-id">${esc(p.peer_id)}:${p.port}</span>
+            </div>
+            <div class="peer-actions">
+                <button class="peer-action" data-tip="Send file — needs core" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M7 4v14"/><path d="M3.5 7.5 7 4l3.5 3.5"/><path d="M17 20V6"/><path d="M13.5 16.5 17 20l3.5-3.5"/></svg>
+                </button>
+                <button class="peer-action" data-tip="Message — needs core" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z"/></svg>
+                </button>
+            </div>
+        </li>`;
+}
+
+function radarEmpty() {
+    return `
+        <li class="radar-wrap">
+            <div class="radar">
+                <svg viewBox="0 0 260 260">
+                    <defs>
+                        <clipPath id="radarClip"><circle cx="130" cy="130" r="118"/></clipPath>
+                    </defs>
+                    <circle cx="130" cy="130" r="118" class="ring"/>
+                    <circle cx="130" cy="130" r="88"  class="ring ring-inner"/>
+                    <circle cx="130" cy="130" r="58"  class="ring ring-inner"/>
+                    <circle cx="130" cy="130" r="28"  class="ring ring-inner"/>
+                    <line x1="12"  y1="130" x2="248" y2="130" class="crosshair"/>
+                    <line x1="130" y1="12"  x2="130" y2="248" class="crosshair"/>
+                    <line x1="48"  y1="48"  x2="212" y2="212" class="crosshair" opacity="0.5"/>
+                    <line x1="212" y1="48"  x2="48"  y2="212" class="crosshair" opacity="0.5"/>
+                    <g clip-path="url(#radarClip)">
+                        <g>
+                            <animateTransform
+                                attributeName="transform"
+                                type="rotate"
+                                from="0 130 130"
+                                to="360 130 130"
+                                dur="3.6s"
+                                repeatCount="indefinite"/>
+                            <path d="M130 130 L130 12 A118 118 0 0 1 235 92 Z" fill="var(--accent)" opacity="0.14"/>
+                            <line x1="130" y1="130" x2="235" y2="92" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" opacity="0.35"/>
+                            <line x1="130" y1="130" x2="235" y2="92" stroke="var(--accent-bright)" stroke-width="1.6" stroke-linecap="round" opacity="0.95"/>
+                        </g>
+                    </g>
+                    <circle cx="130" cy="130" r="3" class="center"/>
+                    <circle cx="130" cy="130" r="3" class="center-pulse">
+                        <animate attributeName="r" values="3;14" dur="2.4s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="0.4;0" dur="2.4s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+            </div>
+            <div class="radar-caption">
+                <h3>Listening for peers</h3>
+                <p>Scanning <code>_localos._udp.local</code> for LocalOS instances on this LAN. Nothing has responded yet.</p>
+                <div class="radar-meta" id="radar-meta">Last scan: just now</div>
+            </div>
+        </li>`;
+}
+
+setInterval(() => {
+    const el = document.getElementById("radar-meta");
+    if (!el) return;
+    const s = Math.round((Date.now() - lastScan) / 1000);
+    el.textContent = s < 2 ? "Last scan: just now" : `Last scan: ${s}s ago`;
+}, 1000);
+
+// ─── Peer selection & inspector ─────────────────────────────────
+function selectPeer(id) {
+    selectedPeerId = id;
+    document.querySelectorAll(".peer-item").forEach((el) => {
+        el.classList.toggle("selected", el.dataset.peerId === id);
+    });
+    renderInspector();
+}
+
+function clearSelection() {
+    selectedPeerId = null;
+    document.querySelectorAll(".peer-item").forEach((el) => el.classList.remove("selected"));
+    renderInspector();
+}
+
+function renderInspector() {
+    const app = document.getElementById("app");
+    const placeholder = document.getElementById("inspector-placeholder");
+    const body = document.getElementById("inspector-body");
+
+    const p = peers.find((x) => x.peer_id === selectedPeerId);
+    if (!p) {
+        app.classList.add("inspector-closed");
+        placeholder.style.display = "flex";
+        body.style.display = "none";
+        return;
+    }
+
+    const initials = (p.name || "??").replace(/[^a-zA-Z0-9]/g, "").slice(0, 2) || "??";
+    app.classList.remove("inspector-closed");
+    placeholder.style.display = "none";
+    body.style.display = "block";
+
+    body.innerHTML = `
+        <div class="inspector-head">
+            <div class="inspector-avatar">${esc(initials)}</div>
+            <div class="inspector-name">${esc(p.name)}</div>
+            <div class="inspector-sub">${esc(p.peer_id)}</div>
+            <span class="inspector-status"><span class="dot"></span>Online · mDNS</span>
+        </div>
+        <div>
+            <div class="inspector-section-title">Details</div>
+            <div class="inspector-field">
+                <div><span class="k">Peer ID</span><span class="v">${esc(p.peer_id)}</span></div>
+                <button class="inspector-copy" data-copy="${esc(p.peer_id)}" data-tip="Copy peer ID">
+                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                </button>
+            </div>
+            <div class="inspector-field">
+                <div><span class="k">Port</span><span class="v">${p.port}</span></div>
+                <button class="inspector-copy" data-copy="${p.port}" data-tip="Copy port">
+                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                </button>
+            </div>
+            <div class="inspector-field">
+                <div><span class="k">Session</span><span class="v">${p.session_id ? esc(p.session_id) : "—"}</span></div>
+            </div>
+        </div>
+        <div>
+            <div class="inspector-section-title">Actions</div>
+            <div class="inspector-actions">
+                <button class="inspector-action" disabled data-tip="Requires transfer engine">
+                    <svg viewBox="0 0 24 24"><path d="M7 4v14"/><path d="M3.5 7.5 7 4l3.5 3.5"/><path d="M17 20V6"/><path d="M13.5 16.5 17 20l3.5-3.5"/></svg>
+                    Send file
+                </button>
+                <button class="inspector-action" disabled data-tip="Requires session layer">
+                    <svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z"/></svg>
+                    Message
+                </button>
+            </div>
+        </div>
+        <button class="inspector-action" disabled data-tip="Not implemented yet" style="grid-column:1/-1">
+            Hide from list
+        </button>
+    `;
+
+    body.querySelectorAll("[data-copy]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            copyText(btn.dataset.copy, "Copied to clipboard");
+        });
+    });
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // MOCK DATA LAYER
 // ═══════════════════════════════════════════════════════════════════
-//
 // Mock data renders ONLY when the user has enabled "Demo mode" in
 // Settings. Default is off, so a production build never shows fake
-// data. When Engineer A ships `crates/core`, the `[]` fallbacks in
-// the render functions become `await invoke("list_transfers")` etc.
+// data.
 
 function isDemo() {
     return loadedSettings?.demo_mode === true;
 }
 
 const MOCK_TRANSFERS = [
-    {
-        id: "t1",
-        name: "dataset-2024.tar.zst",
-        peer: "LocalOS-7788",
-        sizeBytes: 4_500_000_000,
-        progress: 59,
-        speedBps: 127_000_000,
-        etaSeconds: 24,
-        status: "active",
-    },
-    {
-        id: "t2",
-        name: "Photos 2024/",
-        peer: "LocalOS-3344",
-        sizeBytes: 890_000_000,
-        progress: 32,
-        speedBps: 0,
-        etaSeconds: null,
-        status: "paused",
-    },
-    {
-        id: "t3",
-        name: "presentation.pdf",
-        peer: "LocalOS-7788",
-        sizeBytes: 2_400_000,
-        progress: 0,
-        speedBps: 0,
-        etaSeconds: null,
-        status: "queued",
-    },
-    {
-        id: "t4",
-        name: "invoice-Q4.pdf",
-        peer: "LocalOS-3344",
-        sizeBytes: 180_000,
-        progress: 100,
-        speedBps: 0,
-        etaSeconds: 0,
-        status: "completed",
-    },
-    {
-        id: "t5",
-        name: "backup.sql",
-        peer: "LocalOS-7788",
-        sizeBytes: 12_000_000_000,
-        progress: 78,
-        speedBps: 0,
-        etaSeconds: null,
-        status: "failed",
-        error: "Disk full on receiver",
-    },
+    { id: "t1", name: "dataset-2024.tar.zst", peer: "LocalOS-7788", sizeBytes: 4_500_000_000, progress: 59, speedBps: 127_000_000, etaSeconds: 24, status: "active" },
+    { id: "t2", name: "Photos 2024/", peer: "LocalOS-3344", sizeBytes: 890_000_000, progress: 32, speedBps: 0, etaSeconds: null, status: "paused" },
+    { id: "t3", name: "presentation.pdf", peer: "LocalOS-7788", sizeBytes: 2_400_000, progress: 0, speedBps: 0, etaSeconds: null, status: "queued" },
+    { id: "t4", name: "invoice-Q4.pdf", peer: "LocalOS-3344", sizeBytes: 180_000, progress: 100, speedBps: 0, etaSeconds: 0, status: "completed" },
+    { id: "t5", name: "backup.sql", peer: "LocalOS-7788", sizeBytes: 12_000_000_000, progress: 78, speedBps: 0, etaSeconds: null, status: "failed", error: "Disk full on receiver" },
 ];
 
 const MOCK_CHAT = {
     sessionId: "sess-a1b2c3",
     participants: [
-        { id: "localos-28976", name: "LocalOS on ZANGETSU", isSelf: true },
+        { id: "localos-self", name: "You", isSelf: true },
         { id: "localos-7788", name: "Arjun's Laptop", isSelf: false },
         { id: "localos-3344", name: "Priya-MBP", isSelf: false },
     ],
     messages: [
         { id: "m1", from: "localos-3344", text: "Session is up. Everyone seeing each other?", ts: Date.now() - 1000 * 60 * 12 },
         { id: "m2", from: "localos-7788", text: "Yep. Two peers on my side.", ts: Date.now() - 1000 * 60 * 11 },
-        { id: "m3", from: "localos-28976", text: "Same here. Sending the dataset in a sec.", ts: Date.now() - 1000 * 60 * 10, own: true },
+        { id: "m3", from: "localos-self", text: "Same here. Sending the dataset in a sec.", ts: Date.now() - 1000 * 60 * 10, own: true },
         { id: "m4", from: "localos-3344", text: "Nice. Can you share the manifest hash once it starts?", ts: Date.now() - 1000 * 60 * 9 },
-        { id: "m5", from: "localos-28976", text: "Yeah, I'll paste it here.", ts: Date.now() - 1000 * 60 * 8, own: true },
-        { id: "m6", from: "localos-7788", text: "Also — anyone has DBMS notes for units 3-4?", ts: Date.now() - 1000 * 60 * 5 },
-        { id: "m7", from: "localos-3344", text: "I'll advertise mine once I'm back at the room.", ts: Date.now() - 1000 * 60 * 4 },
+        { id: "m5", from: "localos-7788", text: "Also — anyone has DBMS notes for units 3-4?", ts: Date.now() - 1000 * 60 * 5 },
     ],
 };
 
@@ -356,11 +573,7 @@ const MOCK_RESOURCES = [
     { id: "r5", kind: "hardware", label: "HP LaserJet — Room 204", owner: "Room 204", ownerId: "localos-5511" },
 ];
 
-// ═══════════════════════════════════════════════════════════════════
-// FORMATTERS
-// ═══════════════════════════════════════════════════════════════════
-// Kept separate from renderers so they're reusable and testable.
-
+// ─── Formatters ─────────────────────────────────────────────────
 function fmtBytes(bytes) {
     if (bytes < 1024) return `${bytes} B`;
     const units = ["KB", "MB", "GB", "TB"];
@@ -369,12 +582,7 @@ function fmtBytes(bytes) {
     while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
     return `${v.toFixed(v >= 100 ? 0 : 1)} ${units[i]}`;
 }
-
-function fmtSpeed(bps) {
-    if (bps === 0) return "—";
-    return `${fmtBytes(bps)}/s`;
-}
-
+function fmtSpeed(bps) { return bps === 0 ? "—" : `${fmtBytes(bps)}/s`; }
 function fmtEta(seconds) {
     if (seconds === null || seconds === undefined) return "—";
     if (seconds < 60) return `${seconds}s`;
@@ -382,23 +590,19 @@ function fmtEta(seconds) {
     const s = seconds % 60;
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
-
 function fmtTime(epochMs) {
     const d = new Date(epochMs);
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// TRANSFERS VIEW
-// ═══════════════════════════════════════════════════════════════════
-
+// ─── Transfers ──────────────────────────────────────────────────
 let transferFilter = "active";
 
 function renderTransfers() {
     const root = document.getElementById("view-transfers");
     if (!root) return;
 
-    // TODO(core): replace `[]` with `await invoke("list_transfers")` when the engine ships.
+    // TODO(core): replace `[]` with `await invoke("list_transfers")`.
     const all = isDemo() ? MOCK_TRANSFERS : [];
     const counts = {
         active: all.filter((t) => t.status === "active" || t.status === "paused").length,
@@ -417,19 +621,16 @@ function renderTransfers() {
             <h1 class="view-title">Transfers</h1>
             <p class="view-sub">File and folder transfers, queued and in progress.</p>
         </div>
-
         <div class="segmented" role="tablist">
             ${segBtn("active", "Active", counts.active)}
             ${segBtn("queued", "Queued", counts.queued)}
             ${segBtn("completed", "Completed", counts.completed)}
             ${segBtn("failed", "Failed", counts.failed)}
         </div>
-
         <ul class="transfer-list" id="transfer-list"></ul>
     `;
 
     const list = document.getElementById("transfer-list");
-
     if (filtered.length === 0) {
         list.innerHTML = emptyTransfers(transferFilter);
         wireSegmented();
@@ -480,11 +681,9 @@ function transferCard(t) {
             meta.push(`<span>${fmtEta(t.etaSeconds)} left</span>`);
         }
     } else if (isQueued) {
-        meta.push(`<span class="dot-sep"></span>`);
-        meta.push(`<span>Waiting</span>`);
+        meta.push(`<span class="dot-sep"></span><span>Waiting</span>`);
     } else if (isFailed && t.error) {
-        meta.push(`<span class="dot-sep"></span>`);
-        meta.push(`<span class="error">${esc(t.error)}</span>`);
+        meta.push(`<span class="dot-sep"></span><span class="error">${esc(t.error)}</span>`);
     }
 
     const actions = [];
@@ -511,14 +710,11 @@ function transferCard(t) {
                     <span class="transfer-name">${esc(t.name)}</span>
                     <span class="transfer-peer">${esc(t.peer)}</span>
                 </div>
-                <div class="transfer-progress">
-                    <div class="transfer-progress-bar" style="width:${t.progress}%"></div>
-                </div>
+                <div class="transfer-progress"><div class="transfer-progress-bar" style="width:${t.progress}%"></div></div>
                 <div class="transfer-meta">${meta.join("")}</div>
             </div>
             <div class="transfer-actions">${actions.join("")}</div>
-        </li>
-    `;
+        </li>`;
 }
 
 function actionBtn(action, tip, path, danger = false) {
@@ -542,17 +738,12 @@ function wireTransferActions() {
 function handleTransferAction(id, action) {
     const t = MOCK_TRANSFERS.find((x) => x.id === id);
     if (!t) return;
-
     switch (action) {
         case "pause": t.status = "paused"; t.speedBps = 0; t.etaSeconds = null; toast("Transfer paused"); break;
         case "resume": t.status = "active"; t.speedBps = 127_000_000; t.etaSeconds = 24; toast("Transfer resumed"); break;
-        case "cancel":
-        case "retry":
-            toast(action === "retry" ? "Retrying…" : "Transfer cancelled");
-            break;
-        case "open":
-            toast("Opening folder…");
-            break;
+        case "cancel": toast("Transfer cancelled"); break;
+        case "retry": toast("Retrying…"); break;
+        case "open": toast("Opening folder…"); break;
     }
     renderTransfers();
     updateToolbar();
@@ -568,19 +759,13 @@ function emptyTransfers(filter) {
     const { title, body } = map[filter] || map.active;
     return `
         <li class="empty-state">
-            <div class="art">
-                <svg viewBox="0 0 96 96"><rect x="14" y="24" width="68" height="48" rx="6"/><path d="M30 48h36"/><path d="M30 58h22"/><path d="M42 36h12"/></svg>
-            </div>
+            <div class="art"><svg viewBox="0 0 96 96"><rect x="14" y="24" width="68" height="48" rx="6"/><path d="M30 48h36"/><path d="M30 58h22"/><path d="M42 36h12"/></svg></div>
             <h3>${title}</h3>
             <p>${body}</p>
-        </li>
-    `;
+        </li>`;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// CHAT VIEW
-// ═══════════════════════════════════════════════════════════════════
-
+// ─── Chat ───────────────────────────────────────────────────────
 function renderChat() {
     const root = document.getElementById("view-chat");
     if (!root) return;
@@ -594,24 +779,19 @@ function renderChat() {
             <div class="empty-state">
                 <div class="art"><svg viewBox="0 0 96 96"><path d="M78 44a30 30 0 0 1-30 30H26l-8 8V44a30 30 0 1 1 60 0z"/></svg></div>
                 <h3>Not in a session</h3>
-                <p>Start a session from the Peers tab, or join one with a short code.</p>
-            </div>
-        `;
+                <p>Start a session from the Peers tab, or join one with a short code. Messages are signed by your session key and never leave the LAN.</p>
+            </div>`;
         return;
     }
 
     const selfId = MOCK_CHAT.participants.find((p) => p.isSelf)?.id;
-    const participantLabel = MOCK_CHAT.participants
-        .filter((p) => !p.isSelf)
-        .map((p) => p.name)
-        .join(", ");
+    const others = MOCK_CHAT.participants.filter((p) => !p.isSelf).map((p) => p.name).join(", ");
 
     root.innerHTML = `
         <div class="view-head">
             <h1 class="view-title">Chat</h1>
-            <p class="view-sub">Session <code style="font-family:var(--mono);font-size:12px;background:var(--bg-3);padding:1px 5px;border-radius:4px;border:1px solid var(--border-1)">${esc(MOCK_CHAT.sessionId)}</code> · with ${esc(participantLabel)}</p>
+            <p class="view-sub">Session <code style="font-family:var(--mono);font-size:12px;background:var(--bg-3);padding:1px 5px;border-radius:4px;border:1px solid var(--border-1)">${esc(MOCK_CHAT.sessionId)}</code> · with ${esc(others)}</p>
         </div>
-
         <div class="chat-shell">
             <div class="chat-list" id="chat-list"></div>
             <div class="chat-input-bar">
@@ -621,8 +801,7 @@ function renderChat() {
                     Send
                 </button>
             </div>
-        </div>
-    `;
+        </div>`;
 
     renderChatMessages(selfId);
     wireChatInput();
@@ -648,15 +827,13 @@ function renderChatMessages(selfId) {
                     </div>
                     <div class="chat-text">${formatChatText(m.text)}</div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }).join("");
 
     list.scrollTop = list.scrollHeight;
 }
 
 function formatChatText(text) {
-    // Minimal formatting: escape first, then light link + code handling.
     let s = esc(text);
     s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
     s = s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -667,7 +844,6 @@ function wireChatInput() {
     const input = document.getElementById("chat-input");
     const send = document.getElementById("chat-send");
     if (!input || !send) return;
-
     const update = () => { send.disabled = input.value.trim().length === 0; };
     input.addEventListener("input", update);
     input.addEventListener("keydown", (e) => {
@@ -684,45 +860,28 @@ function submitChat() {
     const input = document.getElementById("chat-input");
     const text = input.value.trim();
     if (!text) return;
-
     const selfId = MOCK_CHAT.participants.find((p) => p.isSelf)?.id;
-    MOCK_CHAT.messages.push({
-        id: "m" + Date.now(),
-        from: selfId,
-        text,
-        ts: Date.now(),
-        own: true,
-    });
-
+    MOCK_CHAT.messages.push({ id: "m" + Date.now(), from: selfId, text, ts: Date.now(), own: true });
     input.value = "";
     document.getElementById("chat-send").disabled = true;
     renderChatMessages(selfId);
 
-    // Fake a reply for demo purposes. Remove when real chat lands.
     setTimeout(() => {
         const replier = MOCK_CHAT.participants.find((p) => !p.isSelf);
         if (!replier) return;
-        MOCK_CHAT.messages.push({
-            id: "m" + Date.now() + "-r",
-            from: replier.id,
-            text: "Got it.",
-            ts: Date.now(),
-        });
+        MOCK_CHAT.messages.push({ id: "m" + Date.now() + "-r", from: replier.id, text: "Got it.", ts: Date.now() });
         renderChatMessages(selfId);
     }, 1200);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// RESOURCES VIEW (Hostel Brain)
-// ═══════════════════════════════════════════════════════════════════
-
+// ─── Resources ──────────────────────────────────────────────────
 let resourceQuery = "";
 
 function renderResources() {
     const root = document.getElementById("view-resources");
     if (!root) return;
 
-    // TODO(core): replace `[]` with `await invoke("list_resources")` when the engine ships.
+    // TODO(core): replace `[]` with `await invoke("list_resources")`.
     const all = isDemo() ? MOCK_RESOURCES : [];
     const filtered = filterResources(all, resourceQuery);
 
@@ -731,18 +890,15 @@ function renderResources() {
             <h1 class="view-title">Resources</h1>
             <p class="view-sub">Hostel Brain — search what peers nearby are offering.</p>
         </div>
-
         <label class="resource-search">
             <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             <input id="resource-search-input" type="text" placeholder="Try “DBMS notes”, “GPU”, “printer”…" spellcheck="false" autocomplete="off" value="${esc(resourceQuery)}" />
         </label>
         <p class="resource-hint">Searches locally. Nothing leaves your device — no LLM, no network calls.</p>
-
         <ul class="resource-list" id="resource-list"></ul>
     `;
 
     const list = document.getElementById("resource-list");
-
     if (filtered.length === 0) {
         list.innerHTML = resourceQuery
             ? `<li class="empty-state"><div class="art"><svg viewBox="0 0 96 96"><circle cx="42" cy="42" r="24"/><path d="M60 60l18 18"/></svg></div><h3>No matches</h3><p>Nobody on this LAN is advertising something matching “${esc(resourceQuery)}”.</p></li>`
@@ -756,8 +912,7 @@ function renderResources() {
 
 function filterResources(list, q) {
     if (!q.trim()) return list;
-    const query = q.trim().toLowerCase();
-    const tokens = query.split(/\s+/);
+    const tokens = q.trim().toLowerCase().split(/\s+/);
     return list.filter((r) => {
         const haystack = `${r.label} ${r.kind} ${r.owner}`.toLowerCase();
         return tokens.every((t) => haystack.includes(t));
@@ -775,8 +930,7 @@ function resourceCard(r) {
             <button class="transfer-action" data-tip="Contact owner" data-resource-id="${esc(r.id)}">
                 <svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z"/></svg>
             </button>
-        </li>
-    `;
+        </li>`;
 }
 
 function wireResourceSearch() {
@@ -791,235 +945,6 @@ function wireResourceSearch() {
             next.focus();
             next.setSelectionRange(cursor, cursor);
         }
-    });
-}
-
-
-// ─── Peers ──────────────────────────────────────────────────────
-async function refreshPeers() {
-    try {
-        peers = await invoke("list_peers");
-        lastScan = Date.now();
-
-        document.getElementById("peer-count").textContent = peers.length;
-        document.getElementById("peer-count").classList.toggle("has-peers", peers.length > 0);
-
-        // status bar
-        const sbDot = document.getElementById("sb-peer-dot");
-        const sbText = document.getElementById("sb-peer-text");
-        if (peers.length === 0) {
-            sbDot.className = "sb-dot idle";
-            sbText.textContent = "No peers";
-        } else {
-            sbDot.className = "sb-dot live";
-            sbText.textContent = `${peers.length} peer${peers.length === 1 ? "" : "s"} on LAN`;
-        }
-
-        renderPeers();
-        updateToolbar();
-    } catch (e) {
-        console.error("list_peers failed", e);
-    }
-}
-
-function renderPeers() {
-    const ul = document.getElementById("peers");
-
-    if (peers.length === 0) {
-        ul.innerHTML = radarEmpty();
-        return;
-    }
-
-    const filtered = peers.filter((p) => {
-        if (!peerFilter) return true;
-        const q = peerFilter.toLowerCase();
-        return (
-            p.name.toLowerCase().includes(q) || p.peer_id.toLowerCase().includes(q)
-        );
-    });
-
-    if (filtered.length === 0) {
-        ul.innerHTML = `
-      <li class="empty-state">
-        <h3>No matches</h3>
-        <p>No peer matches "${esc(peerFilter)}".</p>
-      </li>`;
-        return;
-    }
-
-    ul.innerHTML = filtered.map(peerCard).join("");
-
-    ul.querySelectorAll(".peer-item").forEach((el) => {
-        const id = el.dataset.peerId;
-        el.addEventListener("click", () => selectPeer(id));
-        el.addEventListener("contextmenu", (e) => {
-            e.preventDefault();
-            selectPeer(id);
-            openCtxPeer(e.clientX, e.clientY, id);
-        });
-    });
-}
-
-function peerCard(p) {
-    const initials = (p.name || "??").replace(/[^a-zA-Z0-9]/g, "").slice(0, 2) || "??";
-    const selected = p.peer_id === selectedPeerId ? " selected" : "";
-    return `
-    <li class="peer-item${selected}" data-peer-id="${esc(p.peer_id)}">
-      <div class="avatar">${esc(initials)}</div>
-      <div class="peer-info">
-        <span class="peer-name">${esc(p.name)}</span>
-        <span class="peer-id">${esc(p.peer_id)}:${p.port}</span>
-      </div>
-      <div class="peer-actions">
-        <button class="peer-action" data-tip="Send file — needs core" disabled>
-          <svg viewBox="0 0 24 24"><path d="M7 4v14"/><path d="M3.5 7.5 7 4l3.5 3.5"/><path d="M17 20V6"/><path d="M13.5 16.5 17 20l3.5-3.5"/></svg>
-        </button>
-        <button class="peer-action" data-tip="Message — needs core" disabled>
-          <svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z"/></svg>
-        </button>
-      </div>
-    </li>`;
-}
-
-function radarEmpty() {
-    return `
-    <li class="radar-wrap">
-      <div class="radar">
-        <svg viewBox="0 0 260 260">
-          <defs>
-            <clipPath id="radarClip"><circle cx="130" cy="130" r="118"/></clipPath>
-          </defs>
-
-          <circle cx="130" cy="130" r="118" class="ring"/>
-          <circle cx="130" cy="130" r="88"  class="ring ring-inner"/>
-          <circle cx="130" cy="130" r="58"  class="ring ring-inner"/>
-          <circle cx="130" cy="130" r="28"  class="ring ring-inner"/>
-          <line x1="12"  y1="130" x2="248" y2="130" class="crosshair"/>
-          <line x1="130" y1="12"  x2="130" y2="248" class="crosshair"/>
-          <line x1="48"  y1="48"  x2="212" y2="212" class="crosshair" opacity="0.5"/>
-          <line x1="212" y1="48"  x2="48"  y2="212" class="crosshair" opacity="0.5"/>
-
-          <g clip-path="url(#radarClip)">
-            <g>
-              <animateTransform
-                attributeName="transform"
-                type="rotate"
-                from="0 130 130"
-                to="360 130 130"
-                dur="3.6s"
-                repeatCount="indefinite"/>
-              <path d="M130 130 L130 12 A118 118 0 0 1 235 92 Z" fill="#4facfe" opacity="0.14"/>
-              <line x1="130" y1="130" x2="235" y2="92" stroke="#4facfe" stroke-width="4"   stroke-linecap="round" opacity="0.35"/>
-              <line x1="130" y1="130" x2="235" y2="92" stroke="#7ec2ff" stroke-width="1.6" stroke-linecap="round" opacity="0.95"/>
-            </g>
-          </g>
-
-          <circle cx="130" cy="130" r="3" class="center"/>
-          <circle cx="130" cy="130" r="3" class="center-pulse">
-            <animate attributeName="r" values="3;14" dur="2.4s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.4;0" dur="2.4s" repeatCount="indefinite"/>
-          </circle>
-        </svg>
-      </div>
-      <div class="radar-caption">
-        <h3>Listening for peers</h3>
-        <p>Scanning <code>_localos._udp.local</code> for LocalOS instances on this LAN. Nothing has responded yet.</p>
-        <div class="radar-meta" id="radar-meta">Last scan: just now</div>
-      </div>
-    </li>`;
-}
-
-// Update the radar meta every second
-setInterval(() => {
-    const el = document.getElementById("radar-meta");
-    if (!el) return;
-    const s = Math.round((Date.now() - lastScan) / 1000);
-    el.textContent = s < 2 ? "Last scan: just now" : `Last scan: ${s}s ago`;
-}, 1000);
-
-// ─── Peer selection & inspector ─────────────────────────────────
-function selectPeer(id) {
-    selectedPeerId = id;
-    document.querySelectorAll(".peer-item").forEach((el) => {
-        el.classList.toggle("selected", el.dataset.peerId === id);
-    });
-    renderInspector();
-}
-
-function clearSelection() {
-    selectedPeerId = null;
-    document.querySelectorAll(".peer-item").forEach((el) => el.classList.remove("selected"));
-    renderInspector();
-}
-
-function renderInspector() {
-    const app = document.getElementById("app");
-    const placeholder = document.getElementById("inspector-placeholder");
-    const body = document.getElementById("inspector-body");
-
-    const p = peers.find((x) => x.peer_id === selectedPeerId);
-    if (!p) {
-        app.classList.add("inspector-closed");
-        placeholder.style.display = "flex";
-        body.style.display = "none";
-        return;
-    }
-
-    const initials = (p.name || "??").replace(/[^a-zA-Z0-9]/g, "").slice(0, 2) || "??";
-    app.classList.remove("inspector-closed");
-    placeholder.style.display = "none";
-    body.style.display = "block";
-
-    body.innerHTML = `
-    <div class="inspector-head">
-      <div class="inspector-avatar">${esc(initials)}</div>
-      <div class="inspector-name">${esc(p.name)}</div>
-      <div class="inspector-sub">${esc(p.peer_id)}</div>
-      <span class="inspector-status"><span class="dot"></span>Online · mDNS</span>
-    </div>
-
-    <div>
-      <div class="inspector-section-title">Details</div>
-      <div class="inspector-field">
-        <div><span class="k">Peer ID</span><span class="v">${esc(p.peer_id)}</span></div>
-        <button class="inspector-copy" data-copy="${esc(p.peer_id)}" data-tip="Copy peer ID">
-          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-        </button>
-      </div>
-      <div class="inspector-field">
-        <div><span class="k">Port</span><span class="v">${p.port}</span></div>
-        <button class="inspector-copy" data-copy="${p.port}" data-tip="Copy port">
-          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-        </button>
-      </div>
-      <div class="inspector-field">
-        <div><span class="k">Session</span><span class="v">${p.session_id ? esc(p.session_id) : "—"}</span></div>
-      </div>
-    </div>
-
-    <div>
-      <div class="inspector-section-title">Actions</div>
-      <div class="inspector-actions">
-        <button class="inspector-action" disabled data-tip="Requires transfer engine">
-          <svg viewBox="0 0 24 24"><path d="M7 4v14"/><path d="M3.5 7.5 7 4l3.5 3.5"/><path d="M17 20V6"/><path d="M13.5 16.5 17 20l3.5-3.5"/></svg>
-          Send file
-        </button>
-        <button class="inspector-action" disabled data-tip="Requires session layer">
-          <svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z"/></svg>
-          Message
-        </button>
-      </div>
-    </div>
-
-    <button class="inspector-action" disabled data-tip="Not implemented yet" style="grid-column:1/-1">
-      Hide from list
-    </button>
-  `;
-
-    body.querySelectorAll("[data-copy]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            copyText(btn.dataset.copy, "Copied to clipboard");
-        });
     });
 }
 
@@ -1046,35 +971,41 @@ const CMDS = [
         icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'
     },
     {
+        id: "toggle-theme", label: "Toggle light/dark theme", hint: "",
+        icon: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/>',
+        run: () => {
+            const current = loadedSettings?.theme ?? "system";
+            const resolved = document.documentElement.dataset.theme;
+            setThemeChoice(resolved === "dark" ? "light" : "dark");
+        }
+    },
+    {
         id: "refresh", label: "Refresh peers", hint: "Ctrl+R",
-        icon: '<path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"/><path d="M3 21v-5h5"/>', run: () => refreshPeers()
+        icon: '<path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"/><path d="M3 21v-5h5"/>',
+        run: () => refreshPeers()
     },
     {
         id: "copy-self", label: "Copy my peer ID", hint: "",
-        icon: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>', run: async () => {
-            const s = await invoke("get_status");
-            copyText(s.peer_id, "Peer ID copied");
-        }
+        icon: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+        run: async () => { const s = await invoke("get_status"); copyText(s.peer_id, "Peer ID copied"); }
     },
     {
         id: "copy-data", label: "Copy data directory", hint: "",
-        icon: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>', run: async () => {
-            const s = await invoke("get_status");
-            copyText(s.data_dir, "Data directory copied");
-        }
+        icon: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+        run: async () => { const s = await invoke("get_status"); copyText(s.data_dir, "Data directory copied"); }
     },
 ];
 
 const overlay = document.getElementById("cmdk-overlay");
-const input = document.getElementById("cmdk-input");
-const list = document.getElementById("cmdk-list");
+const cmdkInput = document.getElementById("cmdk-input");
+const cmdkList = document.getElementById("cmdk-list");
 let sel = 0;
 let filtered = [];
 
 function openCmdk() {
     overlay.classList.add("open");
-    input.value = "";
-    input.focus();
+    cmdkInput.value = "";
+    cmdkInput.focus();
     renderCmdk("");
 }
 function closeCmdk() { overlay.classList.remove("open"); }
@@ -1088,36 +1019,33 @@ function renderCmdk(q) {
     );
     filtered = [
         ...cmds,
-        ...matchedPeers.map((p) => ({
-            id: "peer-" + p.peer_id,
-            label: p.name,
-            hint: p.peer_id,
-            peer: p,
-        })),
+        ...matchedPeers.map((p) => ({ id: "peer-" + p.peer_id, label: p.name, hint: p.peer_id, peer: p })),
     ];
     sel = 0;
 
     if (filtered.length === 0) {
-        list.innerHTML = `<div class="cmdk-empty">No matches.</div>`;
+        cmdkList.innerHTML = `<div class="cmdk-empty">No matches.</div>`;
         return;
     }
 
     const html = [];
     if (cmds.length) {
         html.push(`<div class="cmdk-group-label">Commands</div>`);
-        html.push(cmds.map((c, i) => item(c, i)).join(""));
+        html.push(cmds.map((c, i) => cmdkItemHtml(c, i)).join(""));
     }
     if (matchedPeers.length) {
         html.push(`<div class="cmdk-group-label">Peers</div>`);
-        html.push(matchedPeers.map((p, i) => item({
-            id: "peer-" + p.peer_id, label: p.name, hint: p.peer_id, peer: p,
-        }, cmds.length + i)).join(""));
+        html.push(matchedPeers.map((p, i) => cmdkItemHtml(
+            { id: "peer-" + p.peer_id, label: p.name, hint: p.peer_id, peer: p },
+            cmds.length + i
+        )).join(""));
     }
-    list.innerHTML = html.join("");
+    cmdkList.innerHTML = html.join("");
     updateSel();
+    wireCmdkClicks();
 }
 
-function item(c, i) {
+function cmdkItemHtml(c, i) {
     const icon = c.icon
         ? `<svg viewBox="0 0 24 24">${c.icon}</svg>`
         : `<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/></svg>`;
@@ -1125,22 +1053,48 @@ function item(c, i) {
 }
 
 function updateSel() {
-    list.querySelectorAll(".cmdk-item").forEach((el, i) => {
+    cmdkList.querySelectorAll(".cmdk-item").forEach((el, i) => {
         el.classList.toggle("sel", i === sel);
     });
 }
 
-function runCmdk() {
-    const item = filtered[sel];
-    if (!item) return;
-    if (item.view) switchView(item.view);
-    else if (item.peer) { switchView("peers"); selectPeer(item.peer.peer_id); }
-    else if (item.run) item.run();
-    closeCmdk();
+// Click handler — THE FIX for bug 2
+function wireCmdkClicks() {
+    cmdkList.querySelectorAll(".cmdk-item").forEach((el) => {
+        el.addEventListener("click", () => {
+            const i = parseInt(el.dataset.i, 10);
+            if (!isNaN(i)) {
+                sel = i;
+                runCmdk();
+            }
+        });
+        // Also update hover selection
+        el.addEventListener("mouseenter", () => {
+            const i = parseInt(el.dataset.i, 10);
+            if (!isNaN(i)) {
+                sel = i;
+                updateSel();
+            }
+        });
+    });
 }
 
-input.addEventListener("input", (e) => renderCmdk(e.target.value));
-input.addEventListener("keydown", (e) => {
+function runCmdk() {
+    const cmd = filtered[sel];
+    if (!cmd) return;
+    closeCmdk();
+    if (cmd.view) {
+        switchView(cmd.view);
+    } else if (cmd.peer) {
+        switchView("peers");
+        selectPeer(cmd.peer.peer_id);
+    } else if (cmd.run) {
+        cmd.run();
+    }
+}
+
+cmdkInput.addEventListener("input", (e) => renderCmdk(e.target.value));
+cmdkInput.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(sel + 1, filtered.length - 1); updateSel(); }
     else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(sel - 1, 0); updateSel(); }
     else if (e.key === "Enter") { e.preventDefault(); runCmdk(); }
@@ -1156,14 +1110,12 @@ function openCtxPeer(x, y, peerId) {
     if (!p) return;
 
     ctx.innerHTML = `
-    <div class="ctx-item disabled"><svg viewBox="0 0 24 24"><path d="M7 4v14"/><path d="M3.5 7.5 7 4l3.5 3.5"/></svg>Send file<span class="kbd">needs core</span></div>
-    <div class="ctx-item disabled"><svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z"/></svg>Message<span class="kbd">needs core</span></div>
-    <div class="ctx-sep"></div>
-    <div class="ctx-item" data-act="copy-id"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy peer ID</div>
-    <div class="ctx-item" data-act="copy-port"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy port</div>
-    <div class="ctx-sep"></div>
-    <div class="ctx-item disabled"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Hide from list<span class="kbd">soon</span></div>
-  `;
+        <div class="ctx-item disabled"><svg viewBox="0 0 24 24"><path d="M7 4v14"/><path d="M3.5 7.5 7 4l3.5 3.5"/></svg>Send file<span class="kbd">needs core</span></div>
+        <div class="ctx-item disabled"><svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.4-5.1A8.5 8.5 0 1 1 21 12z"/></svg>Message<span class="kbd">needs core</span></div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" data-act="copy-id"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy peer ID</div>
+        <div class="ctx-item" data-act="copy-port"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy port</div>
+    `;
     positionCtx(x, y);
 
     ctx.querySelectorAll("[data-act]").forEach((el) => {
@@ -1190,15 +1142,14 @@ document.addEventListener("click", (e) => {
     if (!ctx.contains(e.target)) closeCtx();
 });
 document.addEventListener("contextmenu", (e) => {
-    // right-click outside peer items → generic menu
     const inPeer = e.target.closest(".peer-item");
-    if (inPeer) return; // peer menu handled above
+    if (inPeer) return;
     e.preventDefault();
     ctx.innerHTML = `
-    <div class="ctx-item" data-act="refresh"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"/><path d="M3 21v-5h5"/></svg>Refresh peers<span class="kbd">Ctrl+R</span></div>
-    <div class="ctx-sep"></div>
-    <div class="ctx-item" data-act="copy-data"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy data directory</div>
-  `;
+        <div class="ctx-item" data-act="refresh"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"/><path d="M3 21v-5h5"/></svg>Refresh peers<span class="kbd">Ctrl+R</span></div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" data-act="copy-data"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy data directory</div>
+    `;
     positionCtx(e.clientX, e.clientY);
     ctx.querySelectorAll("[data-act]").forEach((el) => {
         el.addEventListener("click", async () => {
@@ -1226,7 +1177,7 @@ function toast(msg) {
     }, 2000);
 }
 
-// ─── Clipboard (via JS — no Rust roundtrip for UX speed) ────────
+// ─── Clipboard ──────────────────────────────────────────────────
 async function copyText(text, confirmMsg) {
     try {
         await navigator.clipboard.writeText(text);
@@ -1264,12 +1215,6 @@ window.addEventListener("keydown", (e) => {
             ? Math.min((idx === -1 ? -1 : idx) + 1, peers.length - 1)
             : Math.max(idx - 1, 0);
         selectPeer(peers[next].peer_id);
-        return;
-    }
-    if (e.key === "Enter") {
-        if (currentView === "peers" && selectedPeerId && !document.activeElement.matches("input")) {
-            renderInspector();
-        }
     }
 });
 
@@ -1297,6 +1242,7 @@ function esc(s) {
 initWindow();
 initNav();
 initSettings();
+initTheme();
 refreshStatus();
 refreshPeers();
 refreshSettings();

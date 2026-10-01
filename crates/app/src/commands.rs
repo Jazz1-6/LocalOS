@@ -79,10 +79,11 @@ pub fn save_settings(
     if display_name.chars().count() > 64 {
         return Err("Display name must be 64 characters or fewer".into());
     }
-    let settings = Settings {
+        let settings = Settings {
         display_name,
         clipboard_sync_enabled: settings.clipboard_sync_enabled,
         demo_mode: settings.demo_mode,
+        theme: settings.theme,
     };
 
     // Persist to disk first

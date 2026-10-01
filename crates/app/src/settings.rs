@@ -10,6 +10,21 @@ use std::io::Write;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+/// User-facing color scheme preference.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    /// Follow the OS preference.
+    System,
+    Light,
+    Dark,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self::System
+    }
+}
 
 /// User settings. All fields have sensible defaults.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +36,8 @@ pub struct Settings {
     /// real engine state. Off by default. Intended for demos and
     /// portfolio screenshots before the engine ships.
     pub demo_mode: bool,
+    /// Color scheme preference. Default: follow the OS.
+    pub theme: Theme,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -28,6 +45,7 @@ impl Default for Settings {
             display_name: default_display_name(),
             clipboard_sync_enabled: false,
             demo_mode: false,
+            theme: Theme::System,
         }
     }
 }
@@ -98,11 +116,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
 
-        let original = Settings {
+                let original = Settings {
             display_name: "Test Device".to_string(),
             clipboard_sync_enabled: true,
             demo_mode: true,
+            theme: Theme::Dark,
         };
+                assert_eq!(loaded.theme, Theme::Dark);
         original.save(&path).unwrap();
 
         let loaded = Settings::load(&path);
